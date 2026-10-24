@@ -2,7 +2,7 @@
 
 > 在 [wxa-runner](https://github.com/open-wxa/wxa-runner) 里点选小程序页面上的元素，直接在编辑器打开对应源码的那一行。
 
-**状态：设计阶段，还没有可用的代码。** 架构与决策见 [PROJECT_DESIGN.md](./PROJECT_DESIGN.md)，需要 wxa-runner 配合新增的扩展点见 [docs/runner-extensions.md](./docs/runner-extensions.md)。
+**状态：设计阶段，还没有可用的代码。** 架构与决策见 [PROJECT_DESIGN.md](./PROJECT_DESIGN.md)，需要 wxa-runner 配合新增的扩展点见 [docs/runner-extensions.md](./docs/runner-extensions.md)，原生小程序的技术预演任务见 [docs/native-spike.md](./docs/native-spike.md)。
 
 ## 计划中的用法
 
