@@ -32,10 +32,10 @@ node packages/cli/bin/wxa-runner.js dev examples/showcase --inspect
 
 ## 仓库与工作区
 
-| 仓库 | 位置 | 怎么做 |
-| --- | --- | --- |
-| wxa-runner | `/Users/mac/Documents/workspace/DBAA/open-wxa/wxa-runner` | 现有工作区在别的分支上（`fix/hide-tabbar`），**不要动它**。从 `origin/main` 新开 worktree，分支 `feat/inspector-extensions` |
-| wxa-inspector | `/Users/mac/Documents/workspace/DBAA/open-wxa/wxa-inspector` | 新开分支 `spike/native` |
+| 仓库          | 位置                                                         | 怎么做                                                                                                                      |
+| ------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| wxa-runner    | `/Users/mac/Documents/workspace/DBAA/open-wxa/wxa-runner`    | 现有工作区在别的分支上（`fix/hide-tabbar`），**不要动它**。从 `origin/main` 新开 worktree，分支 `feat/inspector-extensions` |
+| wxa-inspector | `/Users/mac/Documents/workspace/DBAA/open-wxa/wxa-inspector` | 新开分支 `spike/native`                                                                                                     |
 
 工具链跟随 wxa-runner：pnpm、TypeScript ESM、vitest、oxlint、Conventional Commits（中文描述）。开发命令见 wxa-runner 的 `CONTRIBUTING.md`。
 

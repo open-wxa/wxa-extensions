@@ -2,10 +2,10 @@
 
 wxa-inspector 依赖 `@open-wxa/wxa-runner-core` 的 `DevServer` 上几个**通用**扩展点。它们不认识 inspector，任何想接入 runner 的开发工具都能用。
 
-| 扩展点 | 状态 |
-| --- | --- |
+| 扩展点                                                                                 | 状态                                                                       |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `webviewScripts`、`middlewares`、`wxmlTransform`，扩展（`extensions` / `--extension`） | 已实现：wxa-runner 分支 `feat/dev-server-extensions`（基于 0.8.1），未发版 |
-| `watch: 'manual'` + `invalidate()` | 未实现，P3（uni）需要 |
+| `watch: 'manual'` + `invalidate()`                                                     | 未实现，P3（uni）需要                                                      |
 
 ## 接口
 
@@ -13,22 +13,22 @@ wxa-inspector 依赖 `@open-wxa/wxa-runner-core` 的 `DevServer` 上几个**通�
 /** 注入每个渲染层页面的脚本，src 与 content 二选一 */
 type WebviewScript = ({ src: string } | { content: string }) & {
   /** 'head'：在基础库（WAWebview.js）之前执行，还没有 document.body；'body'（默认）：<body> 开头、页面渲染之前 */
-  position?: 'head' | 'body'
-}
+  position?: 'head' | 'body';
+};
 
 interface DevServerMiddleware {
   /** 以 / 开头的路径前缀；不能是 /，不能落在 /__wxa__、/__baselib__、/__plugin__ 下 */
-  path: string
+  path: string;
   /** req.url 已去掉 path 前缀；不处理时调用 next() 交给 runner */
-  handler: (req: IncomingMessage, res: ServerResponse, next: (error?: unknown) => void) => void
+  handler: (req: IncomingMessage, res: ServerResponse, next: (error?: unknown) => void) => void;
 }
 
 interface DevServerOptions {
   // ...现有选项
-  webviewScripts?: WebviewScript[]
-  middlewares?: DevServerMiddleware[]
+  webviewScripts?: WebviewScript[];
+  middlewares?: DevServerMiddleware[];
   /** wxml 交给 wcc 前的转换；不能改变行数，相同输入返回相同输出，源文件不会被修改 */
-  wxmlTransform?: (code: string, file: string) => string
+  wxmlTransform?: (code: string, file: string) => string;
 }
 ```
 
@@ -57,18 +57,18 @@ interface DevServerOptions {
 
 ```ts
 interface DevServerExtension {
-  name: string
+  name: string;
   /** 开发服务器构造时调用一次 */
   setup(context: { projectPath: string; root: string }): {
-    webviewScripts?: WebviewScript[]
-    middlewares?: DevServerMiddleware[]
-    wxmlTransform?: (code: string, file: string) => string
+    webviewScripts?: WebviewScript[];
+    middlewares?: DevServerMiddleware[];
+    wxmlTransform?: (code: string, file: string) => string;
     /** 扩展自己的页面：启动信息里打印，--open 时打开 */
-    entry?: { label: string; path: string }
-  }
+    entry?: { label: string; path: string };
+  };
 }
 
-new DevServer({ projectPath, extensions: [wxaInspector()] })
+new DevServer({ projectPath, extensions: [wxaInspector()] });
 ```
 
 - 多个扩展按顺序合并在直接给出的选项之后：脚本和中间件依次拼接，wxml 转换依次串起来；扩展的中间件同样校验路径，`setup` 出错时报出是哪个扩展。

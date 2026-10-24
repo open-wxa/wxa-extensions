@@ -5,21 +5,19 @@
   "license": "MIT",
   "scripts": {
     "build": "pnpm -r build",
-    "test": "vitest run tests/unit",
-    "test:e2e": "pnpm build && vitest run tests/e2e",
-    "lint": "oxlint --deny-warnings",
-    "typecheck": "tsc --noEmit"
+    "check": "vp check",
+    "fmt": "vp fmt",
+    "test": "vp test tests/unit",
+    "test:e2e": "pnpm build && vp test tests/e2e"
   },
   "devDependencies": {
     "@open-wxa/wxa-inspector": "workspace:*",
     "@types/node": "^20.10.0",
-    "oxlint": "^1.89.0",
     "playwright-core": "^1.64.0",
-    "tsup": "^8.0.1",
     "typescript": "^5.3.2",
-    "vitest": "^1.0.4"
+    "vite-plus": "^1.4.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
   }
 }
