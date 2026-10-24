@@ -1,0 +1,1 @@
+.page { padding: 16px; } .row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }

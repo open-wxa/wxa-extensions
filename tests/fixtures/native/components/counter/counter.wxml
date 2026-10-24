@@ -1,0 +1,3 @@
+<view class="counter">
+  <text>组件里的文字</text>
+</view>

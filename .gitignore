@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# CI 把 wxa-runner 检出到这里跑 E2E
+/wxa-runner

@@ -1,0 +1,8 @@
+<view class="page">
+  <text class="title">检查器示例</text>
+  <view class="row">
+    <button bindtap="onTap">点击加一</button>
+    <text>点击次数：{{taps}}</text>
+  </view>
+  <counter />
+</view>
