@@ -62,7 +62,7 @@ async function eventually<T>(read: () => Promise<T>, done: (value: T) => boolean
 
 describe.skipIf(!ready)('检查器：原生小程序', () => {
   let project: string;
-  let server: { start(): Promise<string>; close(): Promise<void> };
+  let server: { start(): Promise<string>; close(): Promise<void>; extensionEntries: Array<{ path: string }> };
   let browser: Browser;
   let page: Page;
   const opened: string[] = [];
@@ -104,24 +104,24 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
     fs.cpSync(FIXTURE, project, { recursive: true });
 
     const { DevServer } = createRequire(__filename)(RUNNER_CORE!);
-    const { inspector, SHELL_PATH } = createRequire(__filename)(INSPECTOR_DIST);
+    const { wxaInspector } = createRequire(__filename)(INSPECTOR_DIST);
     server = new DevServer({
       projectPath: project,
       port: 0,
       logger: { log: () => undefined, warn: () => undefined, error: () => undefined },
-      ...inspector({
-        projectPath: project,
-        markers: 'wxml',
-        openEditor: (file: string, line: number, col: number) => {
-          if (openFailure) throw new Error(openFailure);
-          opened.push(`${path.relative(project, file)}:${line}:${col}`);
-        }
-      })
+      extensions: [
+        wxaInspector({
+          openEditor: (file: string, line: number, col: number) => {
+            if (openFailure) throw new Error(openFailure);
+            opened.push(`${path.relative(project, file)}:${line}:${col}`);
+          }
+        })
+      ]
     });
     const base = await server.start();
     browser = await launchChrome();
     page = await browser.newPage();
-    await page.goto(base + SHELL_PATH);
+    await page.goto(base + server.extensionEntries[0].path);
   });
 
   afterAll(async () => {

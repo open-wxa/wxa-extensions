@@ -12,7 +12,7 @@
 
 ```bash
 pnpm add -D wxa-runner @open-wxa/wxa-inspector
-npx wxa-runner dev ./miniprogram --inspect
+npx wxa-runner dev ./miniprogram --extension @open-wxa/wxa-inspector
 # → http://localhost:3000/__wxa-inspector__/
 ```
 
@@ -49,7 +49,7 @@ WXA_RUNNER_DIR=../wxa-runner pnpm test:e2e
 WXA_BASELIB=2.32.3 WXA_RUNNER_DIR=../wxa-runner pnpm test:e2e   # 换基础库版本
 
 # 手动试用：用示例项目启动
-node ../wxa-runner/packages/cli/bin/wxa-runner.js dev tests/fixtures/native --inspect --open
+node ../wxa-runner/packages/cli/bin/wxa-runner.js dev tests/fixtures/native --extension @open-wxa/wxa-inspector --open
 ```
 
 ## 许可证

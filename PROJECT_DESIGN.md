@@ -39,60 +39,55 @@
 ## 整体结构
 
 ```
-@open-wxa/wxa-inspector（核心，不绑框架）
-  检查器运行时 · 壳页面 · Elements 面板 · 打开编辑器接口 · manifest 协议
-        ▲                                   ▲
-        │ inspector({ markers: 'external' }) │ inspector({ markers: 'wxml' })
-        │                                   │
-@open-wxa/wxa-inspector-uni           wxa-runner dev --inspect
-（Vite 插件：.vue 层插桩，             （原生：wxml 编译钩子插桩，零配置）
-  拉起 runner）
-        │                                   │
-        └──────────────► wxa-runner-core DevServer ◄──┘
-                         webviewScripts · middlewares · wxmlTransform · watch:'manual' + invalidate()
+@open-wxa/wxa-inspector（核心，不绑框架）：默认导出 wxaInspector(options?)，返回一个 wxa-runner 开发服务器扩展
+  检查器运行时 · 检查器页面 · Elements 面板 · 打开编辑器接口 · manifest 协议
+        ▲                                         ▲
+        │ wxaInspector({ external })              │ wxaInspector()
+        │                                         │
+@open-wxa/wxa-inspector-uni                 wxa-runner dev --extension @open-wxa/wxa-inspector
+（Vite 插件：.vue 层插桩，拉起 runner）      （原生：wxml 编译时插桩，零配置）
+        │                                         │
+        └──────────► wxa-runner-core DevServer({ extensions }) ◄──┘
+                     webviewScripts · middlewares · wxmlTransform · watch:'manual' + invalidate()
 ```
 
-两条路径的唯一差别是**谁来打标记**；检查器运行时、壳页面、`/open` 接口、manifest 只有一份实现。
+两条路径的唯一差别是**谁来打标记**；检查器运行时、检查器页面、`/open` 接口、manifest 只有一份实现。
+
+### 和 wxa-runner 解耦
+
+inspector 是 wxa-runner 的一个**开发服务器扩展**，两边只通过 runner 公开的扩展约定（`DevServerExtension`）连接：
+
+- runner 不认识 inspector：没有依赖、没有专门的参数，命令行的 `--extension <模块>` 能加载任何扩展
+- inspector 不依赖 runner：扩展的形状在 inspector 里按约定自己声明，只用到 `setup()` 给的项目目录和小程序根目录
+- 以后的开发工具（如网络面板）按同样的方式接入，可以和 inspector 同时加载
 
 ### 包
 
 | 包 | 作用 |
 | --- | --- |
-| `@open-wxa/wxa-inspector` | 核心。对外只暴露 `inspector(options)`，返回 DevServer 选项片段；包含浏览器端运行时与壳页面的静态资源 |
+| `@open-wxa/wxa-inspector` | 核心，默认导出 `wxaInspector(options?)`；包含浏览器端运行时与检查器页面 |
 | `@open-wxa/wxa-inspector-uni` | uni-app 的 Vite 插件：`.vue` 模板插桩 + 管理 wxa-runner 生命周期 |
 
-原生不单独出包：wxa-runner 的 CLI 在 `--inspect` 时动态 `import('@open-wxa/wxa-inspector')`。
-
-### 集成入口：`inspector(options)`
+### 入口：`wxaInspector(options?)`
 
 ```ts
-type InspectorOptions = {
-  /** 小程序项目目录（与 DevServer 的 projectPath 相同） */
-  projectPath: string
+interface WxaInspectorOptions {
   /** 打开编辑器的方式，默认 launch-editor；测试时替换 */
   openEditor?: (file: string, line: number, col: number) => void | Promise<void>
-} & (
-  /** 原生项目：runner 编译 wxml 时插桩，打开的就是项目里的 wxml */
-  | { markers: 'wxml' }
-  /** 标记由上游打好（uni 插件在 .vue 层插桩）：registry 是上游登记文件用的同一个实例，路径相对 sourceRoot */
-  | { markers: 'external'; registry: FileIdRegistry; sourceRoot: string }
-)
+  /** 标记由上游打好时传入（uni 插件在 .vue 层插桩）：registry 是上游登记文件用的同一个实例，路径相对 sourceRoot。不传时是原生项目 */
+  external?: { registry: FileIdRegistry; sourceRoot: string }
+}
 
-export function inspector(options: InspectorOptions): InspectorDevServerOptions
-export const SHELL_PATH = '/__wxa-inspector__/'
+export default function wxaInspector(options?: WxaInspectorOptions): WxaInspectorExtension
 ```
 
-返回值的类型由 inspector 自己声明（与 runner 的 `DevServerOptions` 对应字段形状一致），inspector 对 runner 没有任何依赖。
-
-三种用法都是把它展开进 `DevServer`：
+扩展的 `setup({ root })` 返回 `webviewScripts`、`middlewares`、原生项目的 `wxmlTransform`，以及入口 `{ label: '检查器', path: '/__wxa-inspector__/' }`（runner 打印在启动信息里，`--open` 时打开）。
 
 | 场景 | 用法 |
 | --- | --- |
-| 原生 · 命令行 | `wxa-runner dev ./miniprogram --inspect`，CLI 内部 `new DevServer({ ...opts, ...inspector({ projectPath, markers: 'wxml' }) })` |
-| 原生 · 代码调用（Playwright、自定义脚本） | `new DevServer({ projectPath, ...inspector({ projectPath, markers: 'wxml' }) })` |
-| uni-app | `@open-wxa/wxa-inspector-uni` 启动 runner 时传 `inspector({ projectPath, markers: 'external', registry, sourceRoot })` |
-
-依赖方向单向：runner-core 不知道 inspector 的存在；runner CLI 在 `--inspect` 时从**用户项目**（项目目录、当前目录，最后才是 runner 自身）解析 `@open-wxa/wxa-inspector`——它是用户的开发依赖，从 runner 的安装位置不一定找得到。未安装时提示安装命令后退出。
+| 原生 · 命令行 | `wxa-runner dev ./miniprogram --extension @open-wxa/wxa-inspector` |
+| 原生 · 代码调用（Playwright、自定义脚本） | `new DevServer({ projectPath, extensions: [wxaInspector()] })` |
+| uni-app | `@open-wxa/wxa-inspector-uni` 启动 runner 时传 `extensions: [wxaInspector({ external: { registry, sourceRoot } })]` |
 
 ---
 
@@ -108,13 +103,13 @@ export const SHELL_PATH = '/__wxa-inspector__/'
 
 | 来源 | 位置 | 加标记 | 不加标记 |
 | --- | --- | --- | --- |
-| 原生（`markers: 'wxml'`） | runner 的 `wxmlTransform` 钩子，wxml 送进 `wcc` 之前 | 普通元素、自定义组件标签 | `block`、`template`、`import`、`include`、`wxs`、`slot`；`miniprogram_npm` 下的文件 |
-| uni（`markers: 'external'`） | Vite 插件 `enforce: 'pre'` 的 transform，用 `@vue/compiler-sfc` 解析模板，按源码偏移插入属性 | 原生元素与 uni 内置组件（`view`、`text`、`image`、`button`…） | `template`、`slot`、`component`、自定义组件标签；`node_modules` |
+| 原生（不传 `external`） | runner 的 `wxmlTransform` 钩子，wxml 送进 `wcc` 之前 | 普通元素、自定义组件标签 | `block`、`template`、`import`、`include`、`wxs`、`slot`；`miniprogram_npm` 下的文件 |
+| uni（传 `external`） | Vite 插件 `enforce: 'pre'` 的 transform，用 `@vue/compiler-sfc` 解析模板，按源码偏移插入属性 | 原生元素与 uni 内置组件（`view`、`text`、`image`、`button`…） | `template`、`slot`、`component`、自定义组件标签；`node_modules` |
 
 - 原生 `<template name>` 里的元素按**定义它的文件**标记，经 `include` / `is` 展开后位置仍正确。
 - wxml 用只找开始标签的扫描器处理（`transform/instrumentWxml.ts`），不用通用 HTML 解析器：`{{ }}` 表达式和 `<wxs>` 脚本里都可能有 `<`、`>`。没闭合的 `{{` 当普通文本；已经写了 `data-wxa-src` 的元素不重复添加。
 - 标记会出现在业务事件的 `e.currentTarget.dataset` 里（多一个 `wxaSrc` 字段）。只在开发时插桩，属性名够冷门，可接受。
-- 以后支持其他框架（Taro 等），只需新增一种插桩来源，传 `markers: 'external'`。
+- 以后支持其他框架（Taro 等），只需新增一种插桩来源，传 `external`。
 
 ### 命中与兜底
 
@@ -184,7 +179,7 @@ export const SHELL_PATH = '/__wxa-inspector__/'
 uni 分批写产物，runner 自己监听文件时可能在产物写到一半就刷新，所以改由构建驱动：
 
 1. 仅在 watch 模式且 `UNI_PLATFORM === 'mp-weixin'` 时启用，否则插件什么都不做
-2. 首次 `writeBundle`（产物目录已有 `app.json`）后启动：`new DevServer({ projectPath, watch: 'manual', ...inspector({ ... }) }).start()`，打印壳页面地址
+2. 首次 `writeBundle`（产物目录已有 `app.json`）后启动：`new DevServer({ projectPath, watch: 'manual', extensions: [wxaInspector({ external })] }).start()`，打印壳页面地址
 3. 之后每次 `writeBundle` 结束调用 `server.invalidate()`，触发一次重建和热更新
 4. 进程退出时 `close()`
 
@@ -202,7 +197,7 @@ uni 分批写产物，runner 自己监听文件时可能在产物写到一半就
 | 编辑器打开失败 | 返回 500 和原因，状态栏显示 |
 | manifest 里没有这个 fileId（插桩与产物不同步） | 先重新拉一次 manifest；仍然没有时标签显示「位置未知」，点击时服务端返回 404，状态栏显示原因 |
 | `__wxElement` 不可用（基础库内部变化） | 悬停没有高亮、点击没有反应；靠 E2E 在多个基础库版本上尽早发现，见 [docs/base-library.md](./docs/base-library.md) |
-| `--inspect` 但未安装 `@open-wxa/wxa-inspector` | runner CLI 提示安装命令后退出 |
+| `--extension @open-wxa/wxa-inspector` 但没安装 | runner 命令行提示安装命令后退出 |
 
 ---
 
@@ -214,7 +209,7 @@ uni 分批写产物，runner 自己监听文件时可能在产物写到一半就
 | --- | --- | --- |
 | P0 技术验证（约 1 天） | ① 基础库 `__wxElement` 能读到 `dataset` 并能向上遍历；② uni 编译后 `data-*` 原样进入 wxml | ① 不通过则整体方案需重审；② 不通过则 uni 降级为组件级定位 |
 | P1 runner 扩展点 | 在 wxa-runner 实现 [扩展点](./docs/runner-extensions.md) 并发版 | runner 测试覆盖每个扩展点 |
-| P2 原生检查器 | `@open-wxa/wxa-inspector` 核心 + runner CLI `--inspect` | `wxa-runner dev ./miniprogram --inspect` 打开壳页面，悬停显示高亮与 `文件:行:列`，点击后编辑器跳到对应行 |
+| P2 原生检查器 | `@open-wxa/wxa-inspector` 核心 + runner 命令行 `--extension` | `wxa-runner dev ./miniprogram --extension @open-wxa/wxa-inspector` 打开检查器页面，悬停显示高亮与 `文件:行:列`，点击后编辑器跳到对应行 |
 | P3 uni 插件 | `@open-wxa/wxa-inspector-uni`：`.vue` 插桩 + runner 生命周期 | 只运行 `pnpm dev:mp-weixin` 即可在浏览器看到小程序，改代码自动刷新；检查器跳到 `.vue` 的对应行 |
 | P4 面板 | Elements 树、页面栈，与检查器双向联动 | 树与页面点选互相定位 |
 
@@ -243,10 +238,11 @@ Vue 生态里有两种检查器：
 
 另一种做法是自起壳服务器，把 runner 的 HTTP 与 WebSocket 全部反向代理成同源，再从壳页面伸进 iframe 注入。wxa-runner 是自有仓库，加扩展点更干净：不维护代理、不依赖 runner 的 iframe 层级，扩展点对其他工具也有用。借 `setup` 文件注入会占用用户的配置槽位，不采用。
 
-### 为什么不做 inspector 自己的 CLI，也不做 runner 插件系统
+### 为什么不做 inspector 自己的 CLI，而是做成 runner 扩展
 
 - inspector 自带 CLI（`npx wxa-inspector dev`）要转发 runner 的全部选项（端口、基础库、设备、setup…），两边会持续漂移。
-- 给 runner 做配置文件加插件系统（`wxa.config.ts` 里 `plugins: [inspector()]`）更通用，但现在只有一个插件，属于过度设计。出现第二个插件时再把 `--inspect` 升级为插件机制。
+- 一开始 runner 命令行用专门的 `--inspect` 加载 inspector，等于 runner 认识了 inspector 的包名和 API，两边要协调发版。现在换成通用的扩展约定（`--extension`），runner 不认识任何具体的工具。
+- runner 里「插件」指小程序插件，「devtools」指微信开发者工具，所以这套机制叫扩展（extension）。
 
 ### 为什么叫 wxa-inspector
 

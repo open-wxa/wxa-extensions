@@ -4,7 +4,7 @@ wxa-inspector 依赖 `@open-wxa/wxa-runner-core` 的 `DevServer` 上几个**通�
 
 | 扩展点 | 状态 |
 | --- | --- |
-| `webviewScripts`、`middlewares`、`wxmlTransform`，CLI `--inspect` | 已实现：wxa-runner 分支 `feat/dev-server-extensions`（基于 0.8.1），未发版 |
+| `webviewScripts`、`middlewares`、`wxmlTransform`，扩展（`extensions` / `--extension`） | 已实现：wxa-runner 分支 `feat/dev-server-extensions`（基于 0.8.1），未发版 |
 | `watch: 'manual'` + `invalidate()` | 未实现，P3（uni）需要 |
 
 ## 接口
@@ -51,11 +51,30 @@ interface DevServerOptions {
 - 只重新转换**源内容变化**的文件；项目里删掉的文件同时从镜像目录删除——否则 `<include>` 了已删除文件的模板会读到旧副本（wcc 找不到 include 的文件时不报错，只是没有内容）。
 - 镜像目录在开发服务器 `close()` 时删除。
 
-## CLI `--inspect`
+## 扩展：`extensions` 与 `--extension`
 
-- 从**用户项目**解析 `@open-wxa/wxa-inspector`：依次以项目目录、当前目录、wxa-runner 自身为起点查找。它是用户项目的开发依赖，pnpm 不提升依赖时从 wxa-runner 的安装位置找不到。
-- 找到后把 `inspector({ projectPath, markers: 'wxml' })` 的返回值展开进 `DevServer`，启动信息里打印检查器地址，`--open` 打开检查器页面。
-- 找不到时提示安装命令并退出；找到但初始化出错时按普通启动失败报告真实原因。
+开发工具把要用的扩展点打包成一个**开发服务器扩展**，runner 只认这个约定，不认识具体的工具：
+
+```ts
+interface DevServerExtension {
+  name: string
+  /** 开发服务器构造时调用一次 */
+  setup(context: { projectPath: string; root: string }): {
+    webviewScripts?: WebviewScript[]
+    middlewares?: DevServerMiddleware[]
+    wxmlTransform?: (code: string, file: string) => string
+    /** 扩展自己的页面：启动信息里打印，--open 时打开 */
+    entry?: { label: string; path: string }
+  }
+}
+
+new DevServer({ projectPath, extensions: [wxaInspector()] })
+```
+
+- 多个扩展按顺序合并在直接给出的选项之后：脚本和中间件依次拼接，wxml 转换依次串起来；扩展的中间件同样校验路径，`setup` 出错时报出是哪个扩展。
+- 命令行 `--extension <模块>`（可以写多次）从**用户项目**加载：依次以项目目录、当前目录、wxa-runner 自身为起点查找，因为扩展是用户项目的开发依赖，pnpm 不提升依赖时从 wxa-runner 的安装位置找不到。默认导出可以是扩展，也可以是不带参数调用后返回扩展的函数。
+- 找不到时提示安装命令并退出；不是扩展时说明要求。
+- 「插件」在 runner 里指小程序插件，所以这里叫扩展。
 
 ## watch: 'manual' 与 invalidate()（P3）
 
@@ -80,4 +99,4 @@ interface DevServerOptions {
 - `tests/e2e/devTools.test.ts`：上面的约定，在每个已验证的基础库上跑
 
 - `tests/integration/devServerExtensions.test.ts`：注入位置（head 在基础库之前、body 在渲染之后、插件页面）、`</script>` 转义；中间件前缀剥离、`next()` 交回 runner、非法路径；转换进入产物且源文件不变、只转换变化的文件、删除的文件不再被编译进去、编译错误指向源文件、关闭时删除镜像目录
-- `tests/integration/cli.test.ts`：`--inspect` 从当前目录的项目加载检查器并打印地址；未安装时说明安装方法并退出
+- `tests/integration/cli.test.ts`：`--extension` 从当前目录的项目加载扩展、可以写多次、可以是文件路径；找不到时说明安装方法，不是扩展时说明要求
