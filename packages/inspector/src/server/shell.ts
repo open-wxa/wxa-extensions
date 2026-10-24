@@ -28,7 +28,8 @@ export function shellHtml(): string {
 </html>`;
 }
 
-const CROSSHAIR = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7.25 1h1.5v2.08A5 5 0 0 1 12.92 7.25H15v1.5h-2.08a5 5 0 0 1-4.17 4.17V15h-1.5v-2.08A5 5 0 0 1 3.08 8.75H1v-1.5h2.08A5 5 0 0 1 7.25 3.08zM8 4.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7m0 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3"/></svg>';
+const CROSSHAIR =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7.25 1h1.5v2.08A5 5 0 0 1 12.92 7.25H15v1.5h-2.08a5 5 0 0 1-4.17 4.17V15h-1.5v-2.08A5 5 0 0 1 3.08 8.75H1v-1.5h2.08A5 5 0 0 1 7.25 3.08zM8 4.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7m0 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3"/></svg>';
 
 const STYLE = `
 :root { color-scheme: light; --bar: #16181d; --line: #2c3038; --text: #d7dae0; --muted: #8b929e; --accent: #8b5cf6; --ok: #3fb950; --err: #f85149; }

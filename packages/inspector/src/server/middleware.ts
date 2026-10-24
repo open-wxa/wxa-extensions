@@ -35,7 +35,8 @@ export function createMiddleware(options: MiddlewareOptions): Handler {
     const { pathname } = new URL(req.url ?? '/', 'http://localhost');
     if (req.method === 'GET' && pathname === '/') return send(res, 200, 'text/html', shellHtml());
     if (req.method === 'GET' && pathname === '/runtime.js') return send(res, 200, 'application/javascript', runtime());
-    if (req.method === 'GET' && pathname === '/manifest') return send(res, 200, 'application/json', JSON.stringify(options.registry.manifest()));
+    if (req.method === 'GET' && pathname === '/manifest')
+      return send(res, 200, 'application/json', JSON.stringify(options.registry.manifest()));
     if (pathname === '/open') {
       handleOpen(req, res, options).catch(next);
       return;
@@ -75,10 +76,13 @@ async function handleOpen(req: IncomingMessage, res: ServerResponse, options: Mi
 
 type Target = { file: string; relative: string; line: number; col: number } | { status: number; error: string };
 
-function resolveTarget(body: { id?: unknown; line?: unknown; col?: unknown; component?: unknown }, options: MiddlewareOptions): Target {
+function resolveTarget(
+  body: { id?: unknown; line?: unknown; col?: unknown; component?: unknown },
+  options: MiddlewareOptions
+): Target {
   if (body.id !== undefined) {
     const file = Number.isInteger(body.id) ? options.registry.fileOf(body.id as number) : undefined;
-    if (file === undefined) return { status: 404, error: `没有 id 为 ${String(body.id)} 的文件` };
+    if (file === undefined) return { status: 404, error: `没有 id 为 ${JSON.stringify(body.id)} 的文件` };
     return within(options.sourceRoot, file, positive(body.line), positive(body.col));
   }
   if (typeof body.component === 'string') {
@@ -117,7 +121,7 @@ function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = '';
     req.setEncoding('utf8');
-    req.on('data', chunk => {
+    req.on('data', (chunk) => {
       body += chunk;
       if (body.length > 4096) req.destroy(new Error('请求体过大'));
     });
@@ -139,8 +143,8 @@ function sendError(res: ServerResponse, status: number, message: string): void {
 
 let builtRuntime: string | null = null;
 
-/** 构建产物里 runtime.js 与 index.js 同目录；tsup 的 shims 让 ESM 产物里也有 __dirname */
+/** 构建产物里运行时与入口同目录（见 vite.config.ts 的 pack）；shims 让 ESM 产物里也有 __dirname */
 function readBuiltRuntime(): string {
-  builtRuntime ??= fs.readFileSync(path.join(__dirname, 'runtime.js'), 'utf8');
+  builtRuntime ??= fs.readFileSync(path.join(__dirname, 'runtime.iife.js'), 'utf8');
   return builtRuntime;
 }

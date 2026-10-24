@@ -27,8 +27,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm lint
-      - run: pnpm typecheck
+      # vp check：格式、lint、类型检查
+      - run: pnpm check
       - run: pnpm test
 
   e2e:

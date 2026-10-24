@@ -128,7 +128,7 @@ export class Overlay {
   private renderCard({ element, tag, file, line, col, componentOnly }: Highlight): void {
     const rect = element.getBoundingClientRect();
     // 小程序按 750rpx = 屏幕宽度写样式，渲染层页面的宽度就是屏幕宽度
-    const rpx = (px: number) => Math.round(px * 750 / innerWidth);
+    const rpx = (px: number) => Math.round((px * 750) / innerWidth);
     const slash = file ? file.lastIndexOf('/') + 1 : 0;
 
     this.card.replaceChildren(
@@ -137,9 +137,18 @@ export class Overlay {
         componentOnly ? el('span', 'badge', '组件') : null,
         el('span', 'size', `${rpx(rect.width)} × ${rpx(rect.height)} rpx`)
       ]),
-      el('div', 'source', file
-        ? [el('span', 'dir', file.slice(0, slash)), el('span', 'name', file.slice(slash)), line ? el('span', 'pos', `:${line}:${col}`) : null]
-        : [el('span', 'dir', '位置未知')], { 'data-wxa-inspector': 'source' })
+      el(
+        'div',
+        'source',
+        file
+          ? [
+              el('span', 'dir', file.slice(0, slash)),
+              el('span', 'name', file.slice(slash)),
+              line ? el('span', 'pos', `:${line}:${col}`) : null
+            ]
+          : [el('span', 'dir', '位置未知')],
+        { 'data-wxa-inspector': 'source' }
+      )
     );
   }
 
@@ -148,7 +157,12 @@ export class Overlay {
     if (!highlight) return;
     if (!highlight.element.isConnected) return this.hide();
     const rect = highlight.element.getBoundingClientRect();
-    Object.assign(this.box.style, { left: px(rect.left), top: px(rect.top), width: px(rect.width), height: px(rect.height) });
+    Object.assign(this.box.style, {
+      left: px(rect.left),
+      top: px(rect.top),
+      width: px(rect.width),
+      height: px(rect.height)
+    });
 
     // 卡片默认在元素上方，放不下时放下方，都放不下时贴在视口顶部；水平方向对齐元素左边，不超出视口
     const { offsetWidth: width, offsetHeight: height } = this.card;
@@ -168,7 +182,12 @@ function px(value: number): string {
   return `${value}px`;
 }
 
-function el(tag: string, className: string, content: string | Array<Node | null>, attrs: Record<string, string> = {}): HTMLElement {
+function el(
+  tag: string,
+  className: string,
+  content: string | Array<Node | null>,
+  attrs: Record<string, string> = {}
+): HTMLElement {
   const node = document.createElement(tag);
   node.className = className;
   for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);

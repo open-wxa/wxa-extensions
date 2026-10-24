@@ -12,19 +12,22 @@ import os from 'os';
 import path from 'path';
 import { createRequire } from 'module';
 import { chromium, Browser, Frame, Page } from 'playwright-core';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const FIXTURE = path.join(__dirname, '../fixtures/native');
-const INSPECTOR_DIST = path.join(REPO_ROOT, 'packages/inspector/dist/index.js');
-const RUNNER_CORE = process.env.WXA_RUNNER_DIR && path.resolve(process.env.WXA_RUNNER_DIR, 'packages/core/dist/index.js');
-const CHROME = process.env.WXA_CHROME || [
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  '/usr/bin/google-chrome'
-].find(file => fs.existsSync(file));
+const INSPECTOR_DIST = path.join(REPO_ROOT, 'packages/inspector/dist/index.cjs');
+const RUNNER_CORE =
+  process.env.WXA_RUNNER_DIR && path.resolve(process.env.WXA_RUNNER_DIR, 'packages/core/dist/index.js');
+const CHROME =
+  process.env.WXA_CHROME ||
+  ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome'].find((file) =>
+    fs.existsSync(file)
+  );
 
 const missing = [
-  !(RUNNER_CORE && fs.existsSync(RUNNER_CORE)) && `wxa-runner 的构建产物（WXA_RUNNER_DIR=${process.env.WXA_RUNNER_DIR ?? '未设置'}）`,
+  !(RUNNER_CORE && fs.existsSync(RUNNER_CORE)) &&
+    `wxa-runner 的构建产物（WXA_RUNNER_DIR=${process.env.WXA_RUNNER_DIR ?? '未设置'}）`,
   !fs.existsSync(INSPECTOR_DIST) && '本仓库的构建产物（先 pnpm build）',
   !CHROME && 'Chrome（或用 WXA_CHROME 指定）'
 ].filter(Boolean);
@@ -38,9 +41,14 @@ if (process.env.CI && !ready) throw new Error(`E2E 缺少：${missing.join('、'
  * （做法和原因同 wxa-runner 的 tests/e2e/runner.ts）
  */
 function launchChrome(): Promise<Browser> {
-  return chromium.launch(process.platform === 'darwin'
-    ? { executablePath: path.join(__dirname, 'chrome-no-app-nap.sh'), env: { ...process.env, WXA_CHROME_BINARY: CHROME! } }
-    : { executablePath: CHROME });
+  return chromium.launch(
+    process.platform === 'darwin'
+      ? {
+          executablePath: path.join(__dirname, 'chrome-no-app-nap.sh'),
+          env: { ...process.env, WXA_CHROME_BINARY: CHROME! }
+        }
+      : { executablePath: CHROME }
+  );
 }
 
 /** 源文件里 snippet 所在的 行:列 */
@@ -56,7 +64,7 @@ async function eventually<T>(read: () => Promise<T>, done: (value: T) => boolean
   for (;;) {
     const value = await read().catch(() => undefined as T);
     if (done(value) || Date.now() > deadline) return value;
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
 
@@ -69,7 +77,7 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
   let openFailure: string | null = null;
 
   /** wxa-runner 的宿主页面：检查器页面里的 iframe */
-  const host = () => page.frames().find(frame => frame.parentFrame() === page.mainFrame())!;
+  const host = () => page.frames().find((frame) => frame.parentFrame() === page.mainFrame())!;
 
   /** 当前显示的渲染层页面 */
   async function currentPage(): Promise<Frame> {
@@ -139,7 +147,9 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
   it('悬停时高亮框贴合元素，标签显示 文件:行:列', async () => {
     await setInspecting(true);
     const frame = await currentPage();
-    expect(await hoverText(frame, '检查器示例')).toBe(`pages/index/index.wxml:${positionOf(project, 'pages/index/index.wxml', '<text class="title"')}`);
+    expect(await hoverText(frame, '检查器示例')).toBe(
+      `pages/index/index.wxml:${positionOf(project, 'pages/index/index.wxml', '<text class="title"')}`
+    );
 
     const target = await textEl(frame, '检查器示例').boundingBox();
     expect(await box(frame).boundingBox()).toEqual(target);
@@ -147,14 +157,21 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
 
   it('自定义组件里的元素指向组件的 wxml', async () => {
     const frame = await currentPage();
-    expect(await hoverText(frame, '组件里的文字')).toBe(`components/counter/counter.wxml:${positionOf(project, 'components/counter/counter.wxml', '<text')}`);
+    expect(await hoverText(frame, '组件里的文字')).toBe(
+      `components/counter/counter.wxml:${positionOf(project, 'components/counter/counter.wxml', '<text')}`
+    );
   });
 
   it('点击在编辑器打开对应行列，不触发页面的 tap，状态栏显示结果', async () => {
     const frame = await currentPage();
     const expected = `pages/index/index.wxml:${positionOf(project, 'pages/index/index.wxml', '<button')}`;
     await button(frame, '点击加一').click();
-    expect(await eventually(() => status().textContent(), text => text === `已在编辑器打开 ${expected}`)).toBe(`已在编辑器打开 ${expected}`);
+    expect(
+      await eventually(
+        () => status().textContent(),
+        (text) => text === `已在编辑器打开 ${expected}`
+      )
+    ).toBe(`已在编辑器打开 ${expected}`);
     expect(opened).toEqual([expected]);
     expect(await textEl(frame, '点击次数：1').count()).toBe(1);
   });
@@ -163,7 +180,12 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
     openFailure = '没有找到可用的编辑器';
     try {
       await textEl(await currentPage(), '检查器示例').click();
-      expect(await eventually(() => status().textContent(), text => text!.startsWith('打开失败'))).toBe('打开失败：没有找到可用的编辑器');
+      expect(
+        await eventually(
+          () => status().textContent(),
+          (text) => text!.startsWith('打开失败')
+        )
+      ).toBe('打开失败：没有找到可用的编辑器');
       expect(await status().getAttribute('class')).toContain('err');
     } finally {
       openFailure = null;
@@ -173,7 +195,12 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
   it('焦点在页面里时按 Esc 退出检查，高亮收起，点击恢复正常', async () => {
     const frame = await currentPage();
     await page.keyboard.press('Escape');
-    expect(await eventually(() => page.locator('.toggle').getAttribute('aria-pressed'), value => value === 'false')).toBe('false');
+    expect(
+      await eventually(
+        () => page.locator('.toggle').getAttribute('aria-pressed'),
+        (value) => value === 'false'
+      )
+    ).toBe('false');
     expect(await box(frame).count()).toBe(0);
     await button(frame, '点击加一').click();
     await textEl(frame, '点击次数：2').waitFor();
@@ -182,22 +209,41 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
   it('跳转后新建的页面自动处于检查状态', async () => {
     await setInspecting(true);
     await host().evaluate(() => (window as any).__wxa_test_api__.navigateTo('/pages/detail/detail'));
-    expect(await eventually(async () => (await currentPage()).url(), url => url.includes('pages/detail/detail'))).toContain('pages/detail/detail');
-    expect(await hoverText(await currentPage(), '详情页')).toBe(`pages/detail/detail.wxml:${positionOf(project, 'pages/detail/detail.wxml', '<text')}`);
+    expect(
+      await eventually(
+        async () => (await currentPage()).url(),
+        (url) => url.includes('pages/detail/detail')
+      )
+    ).toContain('pages/detail/detail');
+    expect(await hoverText(await currentPage(), '详情页')).toBe(
+      `pages/detail/detail.wxml:${positionOf(project, 'pages/detail/detail.wxml', '<text')}`
+    );
   });
 
   it('改了 wxml 热更新后，标签里的行号跟着变', async () => {
     const file = path.join(project, 'pages/detail/detail.wxml');
     fs.writeFileSync(file, `<!-- 新加的一行 -->\n${fs.readFileSync(file, 'utf8')}`);
     const expected = `pages/detail/detail.wxml:${positionOf(project, 'pages/detail/detail.wxml', '<text')}`;
-    expect(await eventually(async () => hoverText(await currentPage(), '详情页'), text => text === expected, 10000)).toBe(expected);
+    expect(
+      await eventually(
+        async () => hoverText(await currentPage(), '详情页'),
+        (text) => text === expected,
+        10000
+      )
+    ).toBe(expected);
   });
 
   it('编译失败时显示错误，修好后收起', async () => {
     const file = path.join(project, 'pages/detail/detail.wxml');
     const source = fs.readFileSync(file, 'utf8');
     fs.writeFileSync(file, '<view>\n<text>{{ a </text>\n</view>\n');
-    expect(await eventually(() => page.locator('.build-error').textContent(), text => Boolean(text?.includes('detail.wxml')), 10000)).toContain('detail.wxml');
+    expect(
+      await eventually(
+        () => page.locator('.build-error').textContent(),
+        (text) => Boolean(text?.includes('detail.wxml')),
+        10000
+      )
+    ).toContain('detail.wxml');
     fs.writeFileSync(file, source);
     await page.locator('.build-error').waitFor({ state: 'hidden', timeout: 10000 });
   });

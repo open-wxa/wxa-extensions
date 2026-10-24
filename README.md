@@ -20,13 +20,13 @@ uni-app（Vue 3 + Vite，计划中，还不能用）：一条 `dev:mp-weixin` �
 
 ```ts
 // vite.config.ts
-import { defineConfig } from 'vite'
-import uni from '@dcloudio/vite-plugin-uni'
-import wxaInspector from '@open-wxa/wxa-inspector-uni'
+import { defineConfig } from 'vite';
+import uni from '@dcloudio/vite-plugin-uni';
+import wxaInspector from '@open-wxa/wxa-inspector-uni';
 
 export default defineConfig({
-  plugins: [wxaInspector(), uni()],
-})
+  plugins: [wxaInspector(), uni()]
+});
 ```
 
 打开终端打印的地址：
@@ -38,11 +38,14 @@ Console、Network、Sources 继续用 Chrome DevTools，wxa-inspector 不重复�
 
 ## 开发
 
+工具链是 [Vite+](https://viteplus.dev)（`vp`）：打包用 tsdown（`vp pack`），测试用 Vitest，lint 和格式化用 Oxlint、Oxfmt，配置都在 `vite.config.ts`。开发需要 Node 22.18 及以上，发布的包仍支持 Node 18。
+
 ```bash
 pnpm install
-pnpm build
+pnpm build         # vp pack
+pnpm check         # vp check：格式、lint、类型检查
 pnpm test          # 单测
-pnpm lint && pnpm typecheck
+pnpm fmt           # 格式化
 
 # E2E：真实的 wxa-runner + Chrome。WXA_RUNNER_DIR 指向带扩展点、已 pnpm build 的 wxa-runner 仓库
 WXA_RUNNER_DIR=../wxa-runner pnpm test:e2e
