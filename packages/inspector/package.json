@@ -1,0 +1,34 @@
+{
+  "name": "@open-wxa/wxa-inspector",
+  "version": "0.0.0",
+  "description": "Element inspector for wxa-runner: hover to highlight, click to open the source in your editor",
+  "keywords": ["wechat", "miniprogram", "weapp", "inspector", "wxa-runner"],
+  "license": "MIT",
+  "author": "open-wxa",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-wxa/wxa-inspector.git",
+    "directory": "packages/inspector"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "launch-editor": "^2.10.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

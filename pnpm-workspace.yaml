@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+
+# esbuild（tsup、vitest 用到）的安装脚本负责放好当前平台的二进制。
+# pnpm 11 起用 allowBuilds，pnpm 10 只认 onlyBuiltDependencies，两种都写
+allowBuilds:
+  esbuild: true
+onlyBuiltDependencies:
+  - esbuild

@@ -3,7 +3,7 @@
 这份文档写给参与开发的人：wxa-inspector 要做什么、整体怎么组织、关键取舍的理由。
 需要 wxa-runner 新增的扩展点单独写在 [docs/runner-extensions.md](./docs/runner-extensions.md)。
 
-状态：设计已确认，未开工。
+状态：原生小程序（P1 runner 扩展点、P2 检查器）已实现，未发布；uni（P3）、面板（P4）未开始。
 
 ---
 
@@ -66,18 +66,23 @@
 ### 集成入口：`inspector(options)`
 
 ```ts
-export function inspector(options: {
+type InspectorOptions = {
   /** 小程序项目目录（与 DevServer 的 projectPath 相同） */
   projectPath: string
-  /**
-   * 'wxml'：原生项目，由 runner 编译 wxml 时插桩；
-   * 'external'：标记已由上游打好（uni 插件在 .vue 层插桩），只提供运行时、面板与接口
-   */
-  markers: 'wxml' | 'external'
-  /** markers 为 'external' 时由上游提供 fileId → 源文件绝对路径 */
-  resolveFile?: (fileId: string) => string | undefined
-}): Pick<DevServerOptions, 'webviewScripts' | 'middlewares' | 'wxmlTransform'>
+  /** 打开编辑器的方式，默认 launch-editor；测试时替换 */
+  openEditor?: (file: string, line: number, col: number) => void | Promise<void>
+} & (
+  /** 原生项目：runner 编译 wxml 时插桩，打开的就是项目里的 wxml */
+  | { markers: 'wxml' }
+  /** 标记由上游打好（uni 插件在 .vue 层插桩）：registry 是上游登记文件用的同一个实例，路径相对 sourceRoot */
+  | { markers: 'external'; registry: FileIdRegistry; sourceRoot: string }
+)
+
+export function inspector(options: InspectorOptions): InspectorDevServerOptions
+export const SHELL_PATH = '/__wxa-inspector__/'
 ```
+
+返回值的类型由 inspector 自己声明（与 runner 的 `DevServerOptions` 对应字段形状一致），inspector 对 runner 没有任何依赖。
 
 三种用法都是把它展开进 `DevServer`：
 
@@ -85,9 +90,9 @@ export function inspector(options: {
 | --- | --- |
 | 原生 · 命令行 | `wxa-runner dev ./miniprogram --inspect`，CLI 内部 `new DevServer({ ...opts, ...inspector({ projectPath, markers: 'wxml' }) })` |
 | 原生 · 代码调用（Playwright、自定义脚本） | `new DevServer({ projectPath, ...inspector({ projectPath, markers: 'wxml' }) })` |
-| uni-app | `@open-wxa/wxa-inspector-uni` 启动 runner 时传 `inspector({ projectPath, markers: 'external', resolveFile })` |
+| uni-app | `@open-wxa/wxa-inspector-uni` 启动 runner 时传 `inspector({ projectPath, markers: 'external', registry, sourceRoot })` |
 
-依赖方向单向：inspector 只依赖 `@open-wxa/wxa-runner-core` 的类型；runner-core 不知道 inspector 的存在；runner CLI 把 inspector 当可选依赖，未安装时 `--inspect` 提示 `pnpm add -D @open-wxa/wxa-inspector`。
+依赖方向单向：runner-core 不知道 inspector 的存在；runner CLI 在 `--inspect` 时从**用户项目**（项目目录、当前目录，最后才是 runner 自身）解析 `@open-wxa/wxa-inspector`——它是用户的开发依赖，从 runner 的安装位置不一定找得到。未安装时提示安装命令后退出。
 
 ---
 
@@ -107,17 +112,19 @@ export function inspector(options: {
 | uni（`markers: 'external'`） | Vite 插件 `enforce: 'pre'` 的 transform，用 `@vue/compiler-sfc` 解析模板，按源码偏移插入属性 | 原生元素与 uni 内置组件（`view`、`text`、`image`、`button`…） | `template`、`slot`、`component`、自定义组件标签；`node_modules` |
 
 - 原生 `<template name>` 里的元素按**定义它的文件**标记，经 `include` / `is` 展开后位置仍正确。
-- wxml 解析需要带位置信息，候选 htmlparser2 + `withStartIndices`；`{{ }}` 表达式里的 `<`、`>` 可能需要单独处理。
+- wxml 用只找开始标签的扫描器处理（`transform/instrumentWxml.ts`），不用通用 HTML 解析器：`{{ }}` 表达式和 `<wxs>` 脚本里都可能有 `<`、`>`。没闭合的 `{{` 当普通文本；已经写了 `data-wxa-src` 的元素不重复添加。
 - 标记会出现在业务事件的 `e.currentTarget.dataset` 里（多一个 `wxaSrc` 字段）。只在开发时插桩，属性名够冷门，可接受。
 - 以后支持其他框架（Taro 等），只需新增一种插桩来源，传 `markers: 'external'`。
 
 ### 命中与兜底
 
 1. 鼠标所在 DOM 元素 → `__wxElement` → `dataset.wxaSrc`
-2. 没有标记（第三方组件、插件、uni 内置组件内部）→ 沿基础库节点树向上找最近带标记的祖先
-3. 仍找不到 → 取所属自定义组件的路径（如 `components/foo/foo`），打开对应 `.wxml`（原生）——**组件级**，只到文件
+2. 没有标记（第三方组件、插件、uni 内置组件内部）→ 沿 DOM 向上找最近带标记的祖先
+3. 仍找不到 → 取所属自定义组件的路径（如 `components/foo/foo`），打开对应 `.wxml`（只有原生项目）——**组件级**，只到文件
 
-`__wxElement` 是基础库内部 API，所有访问收敛在一个适配函数里，E2E 覆盖；不可用时检查器整体降级为禁用并在工具栏说明原因。
+高亮框画在**找到标记的那个元素**上，不是鼠标下的元素，框和标签始终指同一个东西。
+
+`__wxElement` 是基础库内部 API，访问都在 `runtime/locate.ts`，实测行为记录在 [docs/base-library.md](./docs/base-library.md)，E2E 在多个基础库版本上覆盖。
 
 ---
 
@@ -125,17 +132,18 @@ export function inspector(options: {
 
 ### 壳页面（`/__wxa-inspector__/`）
 
-- 左：模拟器（iframe 指向 runner 根路径）；右：面板；顶部：工具栏（检查器开关）
-- 构建错误：读 runner 的 `/__wxa__/app-info.json` 的 `buildError` 直接显示
+- 顶部工具栏：检查器开关（含快捷键提示）、状态栏（检查提示 / 已打开 / 打开失败的原因）、单独打开 runner 页面的链接
+- 下方：iframe 指向 runner 根路径，查询参数原样透传（`?path=pages/detail/detail` 直达）；面板（P4）以后放右侧
+- 构建错误：先读 `/__wxa__/app-info.json` 的 `buildError`，再连 runner 的 `/__wxa__/ws`，收到 `error` 显示、收到 `hot` / `reload` 收起
 
 ### 检查器运行时
 
-经 `webviewScripts` 注入每个页面 iframe（包括跳转后新建的页面），与壳页面用 `postMessage` 同步开关状态和选中节点。
+经 `webviewScripts`（`position: 'head'`，在基础库之前）注入每个页面 iframe，包括跳转后新建的页面。开关状态只存在壳页面：运行时加载后发 `hello` 要当前状态，之后接收 `state` 广播；收发消息都校验同源。
 
-- **高亮**：覆盖层直接画在页面 iframe 内（`position: fixed`、`pointer-events: none`、高 z-index），标签显示 `Foo.vue:12:5`。不跨 iframe 换算坐标和设备缩放。
-- **拦截**：开启时在 window **捕获阶段**监听 `mouseover` / `mousedown` / `click` / `touchstart`，`preventDefault` + `stopPropagation`，不触发小程序的 tap；捕获阶段也能防止业务的 `catch` 事件吞掉检查器（Vue DevTools 同样做法）。
-- **开关**：工具栏按钮、`Alt+Shift+C`；`Esc` 退出。
-- **点击**：请求 `/__wxa-inspector__/open?id=&line=&col=`。
+- **高亮**：覆盖层直接画在页面 iframe 内（`position: fixed`、`pointer-events: none`），不跨 iframe 换算坐标和设备缩放。滚动、窗口变化时跟随元素；标签在框上方放不下时放下方，水平方向不超出视口；鼠标离开页面时收起；检查时显示十字光标。
+- **拦截**：在 window **捕获阶段**拦 `touchstart` / `touchmove` / `touchend` / `touchcancel` / `click`（runner 把鼠标转成 touch，基础库从 touch 合成 tap）。监听在脚本加载时就注册好，开关只改变行为——必须早于基础库注册，否则 2.x 拦不住，见 [docs/base-library.md](./docs/base-library.md)。
+- **开关**：工具栏按钮、`Alt+Shift+C`；`Esc` 退出。焦点在页面里时由运行时把快捷键转给壳页面。
+- **点击**：`POST /__wxa-inspector__/open`，结果（打开的位置或失败原因）回传壳页面显示在状态栏。
 
 ### 面板
 
@@ -150,16 +158,24 @@ export function inspector(options: {
 
 | 路径 | 作用 |
 | --- | --- |
-| `/__wxa-inspector__/` | 壳页面静态资源 |
-| `/__wxa-inspector__/manifest` | fileId → 项目相对路径 |
-| `/__wxa-inspector__/open?id&line&col` | `launch-editor` 打开文件；解析后的路径越出项目根时返回 403 |
+| `GET /__wxa-inspector__/` | 壳页面 |
+| `GET /__wxa-inspector__/runtime.js` | 注入页面的运行时 |
+| `GET /__wxa-inspector__/manifest` | fileId → 相对源码根目录的路径 |
+| `POST /__wxa-inspector__/open` | body `{ id, line, col }` 或 `{ component }`，打开编辑器；返回打开的位置，失败时返回原因 |
+
+`/open` 会在本机启动进程，只接受本机检查器页面的请求：
+
+- 只接受 `POST` + `application/json`（跨站请求过不了 CORS 预检）
+- `Sec-Fetch-Site` 必须是 `same-origin`，`Origin` 必须与 `Host` 一致
+- 请求必须来自本机回环地址：`--host` 开放局域网时，别的设备能看页面，但不能在你的电脑上打开编辑器
+- 解析出的文件必须在源码根目录下（防 `../` 越界），且文件存在
 
 源文件路径：
 
-- 原生：manifest 记录相对小程序根目录的路径；根目录按 `project.config.json` 的 `miniprogramRoot` 解析（runner 的 `MiniProgram.root` 已处理）
-- uni：manifest 记录 `.vue` 的项目相对路径，由 uni 插件经 `resolveFile` 提供
+- 原生：源码根目录就是小程序根目录（按 `project.config.json` 的 `miniprogramRoot`，与 runner 规则一致）
+- uni：源码根目录是 uni 插件传入的 `sourceRoot`（项目根），**不是**编译产物目录——`.vue` 在 `src/` 下，以产物目录为准会全部被越界检查拒绝
 
-编辑器按 `launch-editor` 的规则选择，可用 `LAUNCH_EDITOR` 环境变量指定（`code`、`cursor`、`webstorm`…）。
+编辑器按 `launch-editor` 的规则选择，可用 `LAUNCH_EDITOR` 环境变量指定（`code`、`cursor`、`webstorm`…）。`launch-editor` 只在失败时回调，所以等 300ms 没有报错就算打开成功；找不到编辑器、命令不存在等原因会回传到页面。
 
 ---
 
@@ -181,9 +197,11 @@ uni 分批写产物，runner 自己监听文件时可能在产物写到一半就
 | 情况 | 处理 |
 | --- | --- |
 | 找不到基础库、端口被占用、runner 启动失败 | 终端打印原因与处理办法，**不中断 uni 的编译** |
-| `/open` 解析出的路径越出项目根 | 拒绝，返回 403 |
-| manifest 里没有这个 fileId（插桩与产物不同步） | 标签显示「位置未知」，不发起打开请求 |
-| `__wxElement` 不可用（基础库内部变化） | 检查器禁用，工具栏说明原因 |
+| `/open` 解析出的路径越出源码根目录 | 拒绝，返回 403 |
+| `/open` 来自别的站点或别的设备 | 拒绝，返回 403 |
+| 编辑器打开失败 | 返回 500 和原因，状态栏显示 |
+| manifest 里没有这个 fileId（插桩与产物不同步） | 先重新拉一次 manifest；仍然没有时标签显示「位置未知」，点击时服务端返回 404，状态栏显示原因 |
+| `__wxElement` 不可用（基础库内部变化） | 悬停没有高亮、点击没有反应；靠 E2E 在多个基础库版本上尽早发现，见 [docs/base-library.md](./docs/base-library.md) |
 | `--inspect` 但未安装 `@open-wxa/wxa-inspector` | runner CLI 提示安装命令后退出 |
 
 ---
