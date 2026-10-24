@@ -23,7 +23,15 @@ const CHROME = process.env.WXA_CHROME || [
   '/usr/bin/google-chrome'
 ].find(file => fs.existsSync(file));
 
-const ready = Boolean(RUNNER_CORE && fs.existsSync(RUNNER_CORE) && fs.existsSync(INSPECTOR_DIST) && CHROME);
+const missing = [
+  !(RUNNER_CORE && fs.existsSync(RUNNER_CORE)) && `wxa-runner 的构建产物（WXA_RUNNER_DIR=${process.env.WXA_RUNNER_DIR ?? '未设置'}）`,
+  !fs.existsSync(INSPECTOR_DIST) && '本仓库的构建产物（先 pnpm build）',
+  !CHROME && 'Chrome（或用 WXA_CHROME 指定）'
+].filter(Boolean);
+const ready = missing.length === 0;
+
+// 本地缺条件时跳过；CI 上跳过会显示通过，等于没测，所以直接失败
+if (process.env.CI && !ready) throw new Error(`E2E 缺少：${missing.join('、')}`);
 
 /**
  * macOS 上经脚本启动 Chrome 关掉 App Nap：没有窗口的 Chrome 偶尔会卡在申请 App Nap 断言上，launch / newPage 不再返回

@@ -12,7 +12,7 @@ wxa-inspector 依赖 `@open-wxa/wxa-runner-core` 的 `DevServer` 上几个**通�
 ```ts
 /** 注入每个渲染层页面的脚本，src 与 content 二选一 */
 type WebviewScript = ({ src: string } | { content: string }) & {
-  /** 'head'：在基础库（WAWebview.js）之前执行，DOM 还没就绪；'body'（默认）：<body> 末尾、页面开始渲染之后 */
+  /** 'head'：在基础库（WAWebview.js）之前执行，还没有 document.body；'body'（默认）：<body> 开头、页面渲染之前 */
   position?: 'head' | 'body'
 }
 
@@ -36,6 +36,7 @@ interface DevServerOptions {
 
 - 落点：`server/html.ts` 的 `webviewHtml()` 和 `pluginWebviewHtml()`，普通页面、跳转后新建的页面、插件页面都注入。
 - `position: 'head'` 的脚本在 runner 的桥（`frame.js`）之后、`WAWebview.js` 之前。要赶在基础库之前注册事件监听时用它（检查器拦 tap 就是这种情况，原因见 [base-library.md](./base-library.md)）。
+- `'body'` 的脚本在 `<body>` 开头。不能放在 body 末尾：基础库渲染时会换掉 body，之后才解析到的脚本落在脱离文档的旧 body 里，不会执行。
 - 内联内容里的 `</script` 会被转义，不会提前结束标签。
 
 ## middlewares
@@ -66,9 +67,17 @@ interface DevServerOptions {
   - `watch: 'manual'`：不启动监听，`hotEnabled` 为 true；公开的 `invalidate(files?)` 调用它
   - `invalidate()` 不传 `files` 时按结构变化处理（整页刷新并恢复页面栈）
 
+## 开发工具可以依赖的约定
+
+除了这三个选项，检查器还依赖 runner 的几项运行时行为：frame 嵌套与跨层 `postMessage`、鼠标按 touch 事件派发、
+`/__wxa__/ws` 的 `hot` / `reload` / `error` 消息、`app-info.json` 的 `buildError`，以及基础库的 `__wxElement.dataset` / `is`。
+这些写在 wxa-runner 的 PROJECT_DESIGN.md「开发工具扩展点」里，并由 runner 仓库的 `tests/e2e/devTools.test.ts` 守着：runner 改动破坏了它们，runner 自己的 CI 就会失败。
+
 ## 测试
 
 在 wxa-runner 仓库：
+
+- `tests/e2e/devTools.test.ts`：上面的约定，在每个已验证的基础库上跑
 
 - `tests/integration/devServerExtensions.test.ts`：注入位置（head 在基础库之前、body 在渲染之后、插件页面）、`</script>` 转义；中间件前缀剥离、`next()` 交回 runner、非法路径；转换进入产物且源文件不变、只转换变化的文件、删除的文件不再被编译进去、编译错误指向源文件、关闭时删除镜像目录
 - `tests/integration/cli.test.ts`：`--inspect` 从当前目录的项目加载检查器并打印地址；未安装时说明安装方法并退出
