@@ -7,8 +7,8 @@
  * 开关状态由检查器页面（window.top）统一管理：加载后发 hello 要当前状态，之后接收 state 广播。
  */
 
-import { locate, type Located, type Source } from './locate';
-import { Overlay } from './Overlay';
+import { locate, type Located } from './locate';
+import { Overlay, type Highlight } from './Overlay';
 
 const SOURCE = 'wxa-inspector';
 const API = '/__wxa-inspector__';
@@ -41,7 +41,10 @@ for (const type of BLOCKED_EVENTS) {
     if (!enabled) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (type === 'click') void open(locate(event.target));
+    if (type === 'click') {
+      overlay.flash();
+      void open(locate(event.target));
+    }
   }, { capture: true, passive: false });
 }
 
@@ -67,9 +70,9 @@ let hovering = 0;
 async function hover(located: Located | null): Promise<void> {
   const current = ++hovering;
   if (!located) return overlay.hide();
-  const label = await describe(located.source);
+  const highlight = await describeHighlight(located);
   // 等 manifest 时鼠标可能已经移到别处
-  if (current === hovering && enabled) overlay.show(located.element, label);
+  if (current === hovering && enabled) overlay.show(highlight);
 }
 
 async function open(located: Located | null): Promise<void> {
@@ -86,10 +89,11 @@ async function open(located: Located | null): Promise<void> {
   }
 }
 
-async function describe(source: Source): Promise<string> {
-  if (source.kind === 'component') return `${source.path}.wxml`;
-  const file = await manifest.fileOf(source.fileId);
-  return `${file ?? '位置未知'}:${source.line}:${source.col}`;
+async function describeHighlight({ element, source }: Located): Promise<Highlight> {
+  const tag = element.tagName.toLowerCase().replace(/^wx-/, '');
+  if (source.kind === 'component') return { element, tag, file: `${source.path}.wxml`, componentOnly: true };
+  const file = (await manifest.fileOf(source.fileId)) ?? null;
+  return { element, tag, file, line: source.line, col: source.col, componentOnly: false };
 }
 
 /** fileId → 文件路径；遇到不认识的 id（刚热更新过）再拉一次 */

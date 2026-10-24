@@ -81,7 +81,7 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
     return page.frame({ name: frameName })!;
   }
 
-  const label = (frame: Frame) => frame.locator('[data-wxa-inspector="label"]');
+  const label = (frame: Frame) => frame.locator('[data-wxa-inspector="source"]');
   const box = (frame: Frame) => frame.locator('[data-wxa-inspector="box"]');
   const status = () => page.locator('.status');
   const setInspecting = async (on: boolean) => {
