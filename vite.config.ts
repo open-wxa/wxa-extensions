@@ -12,7 +12,8 @@ export default defineConfig({
     }
   },
   fmt: {
-    ignorePatterns,
+    // CHANGELOG.md 由 release-please 生成，每次发布 PR 都会重写，格式化了也会被覆盖
+    ignorePatterns: [...ignorePatterns, '**/CHANGELOG.md'],
     printWidth: 120,
     singleQuote: true,
     trailingComma: 'none'
