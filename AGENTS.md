@@ -23,6 +23,9 @@ pnpm test:e2e   # 真实 wxa-runner + Chrome，需要 WXA_RUNNER_DIR 指向已 b
 
 提交信息按 Conventional Commits 写，描述用中文，如 `fix: …`、`feat: …`。代码注释用中文，风格跟随周围代码。
 
+两个包独立发版：release-please 按提交开发布 PR，合并后 `.github/workflows/release.yml` 用 Trusted Publishing 执行 `scripts/release.mjs`，流程见 [CONTRIBUTING.md](./CONTRIBUTING.md#发布)。
+新增包时要同步改 `release-please-config.json`、`.release-please-manifest.json`，以及 `scripts/release.mjs` 的 `PACKAGE_DIRS`、`SMOKE_TESTS`。
+
 ## 和 wxa-runner 的关系
 
 - 扩展通过 runner 公开的约定 `DevServerExtension` 接入：`setup({ projectPath, root })` 返回 `webviewScripts`、`middlewares`、`wxmlTransform`、`entry`。扩展点的细节见 [docs/runner-extensions.md](./docs/runner-extensions.md)。

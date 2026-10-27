@@ -1,0 +1,68 @@
+name: Release
+
+# 推送到 main 时，release-please 按提交记录开一个（或更新已有的）发布 PR：有改动的包的版本号和 CHANGELOG.md 都已改好。
+# 两个包独立发版，只看改到各自目录（packages/inspector、packages/unplugin）的提交。
+# 合并发布 PR 后它打 tag（如 unplugin-wxa-runner-v0.1.0）、建 GitHub Release，接着跑一遍 CI，再发布 npm 上还没有的版本。
+# 配置在 release-please-config.json 和 .release-please-manifest.json。
+#
+# 认证用 npm 的 Trusted Publishing（OIDC），不需要 npm token：
+# 每个包在 npmjs.com 的设置里登记本仓库的这个文件（release.yml），改文件名要同步改登记
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# 连续推送时依次处理，免得两次运行同时改发布 PR 或重复建 Release
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      # 打 tag、建 GitHub Release、开发布 PR
+      contents: write
+      pull-requests: write
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+
+  # 只在刚合并了发布 PR 时往下走
+  test:
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: [release-please, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Trusted Publishing 用 GitHub 签发的 OIDC token 向 npm 认证，同时生成 provenance
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted Publishing 需要 npm ≥ 11.5.1，Node 22 自带的是 npm 10
+      - run: npm install -g npm@11
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - run: node scripts/release.mjs

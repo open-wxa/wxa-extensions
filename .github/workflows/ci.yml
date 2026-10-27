@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # 发布前由 release.yml 调用
+  workflow_call:
 
 env:
   # E2E 用的 wxa-runner 源码。检查器依赖的扩展点还没发版：合入 wxa-runner 的 main 后改成 main，发版后改为依赖 npm 上的版本
