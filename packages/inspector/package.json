@@ -9,6 +9,10 @@
     "wechat",
     "wxa-runner"
   ],
+  "homepage": "https://github.com/open-wxa/wxa-extensions/tree/main/packages/inspector#readme",
+  "bugs": {
+    "url": "https://github.com/open-wxa/wxa-extensions/issues"
+  },
   "license": "MIT",
   "author": "open-wxa",
   "repository": {
@@ -33,6 +37,10 @@
         "default": "./dist/index.cjs"
       }
     }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "build": "vp pack",
