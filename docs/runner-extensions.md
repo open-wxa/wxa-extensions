@@ -2,10 +2,10 @@
 
 wxa-inspector 依赖 `@open-wxa/wxa-runner-core` 的 `DevServer` 上几个**通用**扩展点。它们不认识 inspector，任何想接入 runner 的开发工具都能用。
 
-| 扩展点                                                                                 | 状态                                                                       |
-| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `webviewScripts`、`middlewares`、`wxmlTransform`，扩展（`extensions` / `--extension`） | 已实现：wxa-runner 分支 `feat/dev-server-extensions`（基于 0.8.1），未发版 |
-| `watch: 'manual'` + `invalidate()`                                                     | 未实现，P3（uni）需要                                                      |
+| 扩展点                                                                                 | 状态                                               |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `webviewScripts`、`middlewares`、`wxmlTransform`，扩展（`extensions` / `--extension`） | wxa-runner 0.9.0 起提供                            |
+| `watch: 'manual'` + `invalidate()`                                                     | 未实现：构建插件用 runner 自己的文件监听，暂不需要 |
 
 ## 接口
 

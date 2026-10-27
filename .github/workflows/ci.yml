@@ -8,10 +8,6 @@ on:
   # 发布前由 release.yml 调用
   workflow_call:
 
-env:
-  # E2E 用的 wxa-runner 源码。检查器依赖的扩展点还没发版：合入 wxa-runner 的 main 后改成 main，发版后改为依赖 npm 上的版本
-  WXA_RUNNER_REF: feat/dev-server-extensions
-
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -34,20 +30,14 @@ jobs:
       - run: pnpm test
 
   e2e:
-    # Linux 上没有微信开发者工具：编译器和基础库用 wxa-runner 安装时带的 Linux 版和内置版，与 wxa-runner 自己的 CI 相同
+    # 用 npm 上的 wxa-runner（开发依赖 @open-wxa/wxa-runner-core）。Linux 上没有微信开发者工具：
+    # 编译器和基础库用 wxa-runner 安装时带的 Linux 版和内置版，与用户在 Linux 上安装时相同
     runs-on: ubuntu-latest
     env:
       # runner 镜像自带 Google Chrome
       WXA_CHROME: /usr/bin/google-chrome
-      WXA_RUNNER_DIR: ${{ github.workspace }}/wxa-runner
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/checkout@v4
-        with:
-          repository: open-wxa/wxa-runner
-          ref: ${{ env.WXA_RUNNER_REF }}
-          path: wxa-runner
 
       - uses: pnpm/action-setup@v4
         with:
@@ -57,25 +47,14 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: |
-            pnpm-lock.yaml
-            wxa-runner/pnpm-lock.yaml
-
-      - name: Build wxa-runner
-        working-directory: wxa-runner
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-
-      # 找不到编译器、基础库或 Chrome 时先在这里报出来，原因比 E2E 里的报错直接
-      - name: Check compiler, base library and Chrome
-        working-directory: wxa-runner
-        run: |
-          node -e "console.log(require('./packages/compiler/dist').findCompilerBinaries())"
-          node packages/cli/bin/wxa-runner.js baselib extract
-          test -x "$WXA_CHROME"
 
       - run: pnpm install --frozen-lockfile
+
+      # 找不到编译器或 Chrome 时先在这里报出来，原因比 E2E 里的报错直接
+      - name: Check compiler and Chrome
+        run: |
+          node -e "const r = require('module').createRequire(require.resolve('@open-wxa/wxa-runner-core')); console.log(r('@open-wxa/wxa-runner-compiler').findCompilerBinaries())"
+          test -x "$WXA_CHROME"
 
       # CI 上 E2E 的条件不满足时直接失败，不会跳过（见 tests/e2e/inspector.test.ts）
       - run: pnpm test:e2e

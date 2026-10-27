@@ -2,7 +2,7 @@
  * 端到端：在 wxa-runner 里运行原生小程序示例，通过检查器页面点选元素
  *
  * 需要：
- * - 带扩展点的 wxa-runner，WXA_RUNNER_DIR 指向它的仓库目录（已 pnpm build）
+ * - wxa-runner：默认用 npm 上的 @open-wxa/wxa-runner-core（开发依赖）；要试还没发版的 runner 改动时，WXA_RUNNER_DIR 指向它的仓库目录（已 pnpm build）
  * - 本仓库已构建（pnpm build），用的是 dist 里的入口和运行时
  * - Chrome（或用 WXA_CHROME 指定浏览器路径）
  */
@@ -17,8 +17,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test';
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const FIXTURE = path.join(__dirname, '../fixtures/native');
 const INSPECTOR_DIST = path.join(REPO_ROOT, 'packages/inspector/dist/index.cjs');
-const RUNNER_CORE =
-  process.env.WXA_RUNNER_DIR && path.resolve(process.env.WXA_RUNNER_DIR, 'packages/core/dist/index.js');
+const RUNNER_CORE = process.env.WXA_RUNNER_DIR
+  ? path.resolve(process.env.WXA_RUNNER_DIR, 'packages/core/dist/index.js')
+  : createRequire(__filename).resolve('@open-wxa/wxa-runner-core');
 const CHROME =
   process.env.WXA_CHROME ||
   ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome'].find((file) =>
@@ -26,8 +27,7 @@ const CHROME =
   );
 
 const missing = [
-  !(RUNNER_CORE && fs.existsSync(RUNNER_CORE)) &&
-    `wxa-runner 的构建产物（WXA_RUNNER_DIR=${process.env.WXA_RUNNER_DIR ?? '未设置'}）`,
+  !fs.existsSync(RUNNER_CORE) && `wxa-runner 的构建产物（WXA_RUNNER_DIR=${process.env.WXA_RUNNER_DIR}）`,
   !fs.existsSync(INSPECTOR_DIST) && '本仓库的构建产物（先 pnpm build）',
   !CHROME && 'Chrome（或用 WXA_CHROME 指定）'
 ].filter(Boolean);
@@ -111,7 +111,7 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
     project = fs.mkdtempSync(path.join(os.tmpdir(), 'wxa-inspector-e2e-'));
     fs.cpSync(FIXTURE, project, { recursive: true });
 
-    const { DevServer } = createRequire(__filename)(RUNNER_CORE!);
+    const { DevServer } = createRequire(__filename)(RUNNER_CORE);
     const { wxaInspector } = createRequire(__filename)(INSPECTOR_DIST);
     server = new DevServer({
       projectPath: project,

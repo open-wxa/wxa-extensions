@@ -11,6 +11,9 @@ importers:
       '@open-wxa/wxa-inspector':
         specifier: workspace:*
         version: link:packages/inspector
+      '@open-wxa/wxa-runner-core':
+        specifier: ^0.9.0
+        version: 0.9.0
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.43
@@ -37,8 +40,8 @@ importers:
         version: 3.5.0(@voidzero-dev/vite-plus-core@1.4.0(@types/node@20.19.43)(esbuild@0.28.2)(typescript@5.9.3))(esbuild@0.28.2)
     devDependencies:
       '@open-wxa/wxa-runner-core':
-        specifier: ^0.8.2
-        version: 0.8.2
+        specifier: ^0.9.0
+        version: 0.9.0
 
 packages:
 
@@ -232,16 +235,16 @@ packages:
   '@open-wxa/wxa-baselib@0.1.0':
     resolution: {integrity: sha512-mt2Nsd3mt7mXh3GhpSQzTHvzi6l++Xhwdd7CH9PJJv3yTh4QXC8y9+E2QkL5URO76RToLahACRwCmrgmMYQsaA==}
 
-  '@open-wxa/wxa-runner-compiler@0.8.2':
-    resolution: {integrity: sha512-rj2VN6op3humTqoBiMpxp5HIpdmH6AupxHjCEVpuQlxa4eq81/lCuA6njYsJ5g0la8RFmsOnckTpYhGWIAmAtg==}
+  '@open-wxa/wxa-runner-compiler@0.9.0':
+    resolution: {integrity: sha512-jWCcqUqSIRpNUjd2SLcX5w03InVBeb9XEdzkpFBDUKuUNhnP4BKq9jGci5nCop/cdnh9bw5+fW1LwqZm4411Zw==}
     engines: {node: '>=18'}
 
-  '@open-wxa/wxa-runner-core@0.8.2':
-    resolution: {integrity: sha512-L8dUR7hPWcF6C3JXUx/eSQ4N7/BirD1xrpADJuu+w7lDNvMwMmt8BhEqNWmoyCp1eUCqqbAbpCbJzX6q5bLwXA==}
+  '@open-wxa/wxa-runner-core@0.9.0':
+    resolution: {integrity: sha512-n6d4ZvEMvrOR53Ne3PN5PNaQ2HNGM2KaA0GV7X1J/dG2KklNaATKoq4xopFjmybnIrPLV2IuOSv1Ouu/FYcjuQ==}
     engines: {node: '>=18'}
 
-  '@open-wxa/wxa-runner-extractor@0.8.2':
-    resolution: {integrity: sha512-JUlNfGBejxDRDR+2v1VT5wRhb4x+a2Sdv02cnM645sLCAIDB+wqQVmC+PnsNlQX1lIRcrmlHdjkCFMFaJj6oBA==}
+  '@open-wxa/wxa-runner-extractor@0.9.0':
+    resolution: {integrity: sha512-++V9zQmYa4zJfzkZgBXe9ZRi04gb5r3f/nFM9islmAvdquKqCXmSEsVoYQLafTzH2iqOcvFOieHq58p+46sc7Q==}
     engines: {node: '>=18'}
 
   '@oxc-project/runtime@0.155.0':
@@ -1002,7 +1005,7 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
@@ -1660,16 +1663,16 @@ snapshots:
   '@open-wxa/wxa-baselib@0.1.0':
     optional: true
 
-  '@open-wxa/wxa-runner-compiler@0.8.2':
+  '@open-wxa/wxa-runner-compiler@0.9.0':
     dependencies:
-      '@open-wxa/wxa-runner-extractor': 0.8.2
+      '@open-wxa/wxa-runner-extractor': 0.9.0
     optionalDependencies:
       miniprogram-compiler: 0.2.3
 
-  '@open-wxa/wxa-runner-core@0.8.2':
+  '@open-wxa/wxa-runner-core@0.9.0':
     dependencies:
-      '@open-wxa/wxa-runner-compiler': 0.8.2
-      '@open-wxa/wxa-runner-extractor': 0.8.2
+      '@open-wxa/wxa-runner-compiler': 0.9.0
+      '@open-wxa/wxa-runner-extractor': 0.9.0
       chokidar: 3.6.0
       esbuild: 0.28.2
       express: 4.22.3
@@ -1679,7 +1682,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@open-wxa/wxa-runner-extractor@0.8.2':
+  '@open-wxa/wxa-runner-extractor@0.9.0':
     optionalDependencies:
       '@open-wxa/wxa-baselib': 0.1.0
 
