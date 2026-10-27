@@ -13,7 +13,7 @@
   "author": "open-wxa",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/open-wxa/wxa-inspector.git",
+    "url": "git+https://github.com/open-wxa/wxa-extensions.git",
     "directory": "packages/inspector"
   },
   "files": [

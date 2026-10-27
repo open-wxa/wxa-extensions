@@ -1,7 +1,7 @@
 {
-  "name": "@open-wxa/wxa-inspector-monorepo",
+  "name": "@open-wxa/wxa-extensions-monorepo",
   "private": true,
-  "description": "在 wxa-runner 里点选小程序页面上的元素，直接在编辑器打开对应源码",
+  "description": "wxa-runner 的扩展与构建插件：元素检查器，uni-app / Taro 编译时在浏览器里运行小程序",
   "license": "MIT",
   "scripts": {
     "build": "pnpm -r build",
