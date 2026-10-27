@@ -31,38 +31,55 @@ function setEnabled(value: boolean): void {
   overlay.setActive(value);
 }
 
-addEventListener('message', event => {
+addEventListener('message', (event) => {
   const data = event.data;
-  if (event.origin === location.origin && data?.source === SOURCE && data.kind === 'state') setEnabled(data.enabled === true);
+  if (event.origin === location.origin && data?.source === SOURCE && data.kind === 'state')
+    setEnabled(data.enabled === true);
 });
 
 for (const type of BLOCKED_EVENTS) {
-  addEventListener(type, event => {
-    if (!enabled) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if (type === 'click') {
-      overlay.flash();
-      void open(locate(event.target));
-    }
-  }, { capture: true, passive: false });
+  addEventListener(
+    type,
+    (event) => {
+      if (!enabled) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (type === 'click') {
+        overlay.flash();
+        void open(locate(event.target));
+      }
+    },
+    { capture: true, passive: false }
+  );
 }
 
-addEventListener('mouseover', event => {
-  if (enabled) void hover(locate(event.target));
-}, true);
+addEventListener(
+  'mouseover',
+  (event) => {
+    if (enabled) void hover(locate(event.target));
+  },
+  true
+);
 
 // 鼠标离开页面时收起高亮
-addEventListener('mouseout', event => {
-  if (enabled && !(event as MouseEvent).relatedTarget) overlay.hide();
-}, true);
+addEventListener(
+  'mouseout',
+  (event) => {
+    if (enabled && !(event as MouseEvent).relatedTarget) overlay.hide();
+  },
+  true
+);
 
 // 焦点在页面里时，快捷键交给检查器页面处理
-addEventListener('keydown', event => {
-  if ((event.altKey && event.shiftKey && event.code === 'KeyC') || event.key === 'Escape') {
-    post({ kind: 'key', key: event.key, code: event.code, altKey: event.altKey, shiftKey: event.shiftKey });
-  }
-}, true);
+addEventListener(
+  'keydown',
+  (event) => {
+    if ((event.altKey && event.shiftKey && event.code === 'KeyC') || event.key === 'Escape') {
+      post({ kind: 'key', key: event.key, code: event.code, altKey: event.altKey, shiftKey: event.shiftKey });
+    }
+  },
+  true
+);
 
 post({ kind: 'hello' });
 
@@ -78,9 +95,14 @@ async function hover(located: Located | null): Promise<void> {
 async function open(located: Located | null): Promise<void> {
   if (!located) return;
   const { source } = located;
-  const body = source.kind === 'marker' ? { id: source.fileId, line: source.line, col: source.col } : { component: source.path };
+  const body =
+    source.kind === 'marker' ? { id: source.fileId, line: source.line, col: source.col } : { component: source.path };
   try {
-    const res = await fetch(`${API}/open`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch(`${API}/open`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
     const result = await res.json();
     if (res.ok) post({ kind: 'opened', label: `${result.file}:${result.line}:${result.col}` });
     else post({ kind: 'failed', message: result.error });
@@ -100,10 +122,18 @@ async function describeHighlight({ element, source }: Located): Promise<Highligh
 function createManifest() {
   let files: Record<string, string> = {};
   let loading: Promise<void> | null = null;
-  const refresh = () => (loading ??= fetch(`${API}/manifest`)
-    .then(res => res.json())
-    .then(result => { files = result; }, () => undefined)
-    .finally(() => { loading = null; }));
+  const refresh = () =>
+    (loading ??= fetch(`${API}/manifest`)
+      .then((res) => res.json())
+      .then(
+        (result) => {
+          files = result;
+        },
+        () => undefined
+      )
+      .finally(() => {
+        loading = null;
+      }));
   return {
     async fileOf(id: number): Promise<string | undefined> {
       if (!(id in files)) await refresh();

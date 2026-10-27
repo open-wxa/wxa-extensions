@@ -30,7 +30,8 @@ const MARKER = /^(\d+):(\d+):(\d+)$/;
 export function locate(target: EventTarget | null): Located | null {
   const start = target instanceof Element ? target : null;
   for (let el = start; el; el = el.parentElement) {
-    const match = MARKER.exec(String(wxNode(el)?.dataset?.wxaSrc ?? ''));
+    const marker = wxNode(el)?.dataset?.wxaSrc;
+    const match = typeof marker === 'string' ? MARKER.exec(marker) : null;
     if (match) return { element: el, source: { kind: 'marker', fileId: +match[1], line: +match[2], col: +match[3] } };
   }
   for (let el = start; el; el = el.parentElement) {

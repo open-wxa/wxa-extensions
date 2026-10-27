@@ -2,7 +2,7 @@ import fs from 'fs';
 import http from 'http';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { FileIdRegistry } from '../../packages/inspector/src/transform/FileIdRegistry';
 import { createMiddleware, isLoopback } from '../../packages/inspector/src/server/middleware';
 
@@ -33,11 +33,13 @@ beforeAll(async () => {
       opened.push([file, line, col]);
     }
   });
-  server = http.createServer((req, res) => handler(req, res, () => {
-    res.statusCode = 404;
-    res.end('next');
-  }));
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  server = http.createServer((req, res) =>
+    handler(req, res, () => {
+      res.statusCode = 404;
+      res.end('next');
+    })
+  );
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 });
 
@@ -51,17 +53,22 @@ beforeEach(() => {
   failure = null;
 });
 
-const open = (body: unknown, headers: Record<string, string> = {}) => fetch(`${base}/open`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', ...headers },
-  body: JSON.stringify(body)
-});
+const open = (body: unknown, headers: Record<string, string> = {}) =>
+  fetch(`${base}/open`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(body)
+  });
 
 describe('页面、运行时、manifest', () => {
   it('提供检查器页面、运行时和 manifest', async () => {
     expect(await (await fetch(`${base}/`)).text()).toContain('<title>wxa-inspector</title>');
     expect(await (await fetch(`${base}/runtime.js`)).text()).toBe('runtime-code');
-    expect(await (await fetch(`${base}/manifest`)).json()).toEqual({ [indexId]: 'pages/index/index.wxml', [missingId]: 'pages/gone/gone.wxml', [escapeId]: '../outside.wxml' });
+    expect(await (await fetch(`${base}/manifest`)).json()).toEqual({
+      [indexId]: 'pages/index/index.wxml',
+      [missingId]: 'pages/gone/gone.wxml',
+      [escapeId]: '../outside.wxml'
+    });
   });
 
   it('其他路径交给下一个处理者', async () => {

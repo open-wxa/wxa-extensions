@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { instrumentWxml } from '../../packages/inspector/src/transform/instrumentWxml';
 
 /** 去掉插入的标记后应与原文完全相同 */
 const strip = (code: string) => code.replace(/ data-wxa-src="\d+:\d+:\d+"/g, '');
-const markers = (code: string) => [...code.matchAll(/<([\w-]+) data-wxa-src="(\d+:\d+:\d+)"/g)].map(m => `${m[1]}@${m[2]}`);
+const markers = (code: string) =>
+  [...code.matchAll(/<([\w-]+) data-wxa-src="(\d+:\d+:\d+)"/g)].map((m) => `${m[1]}@${m[2]}`);
 
 describe('instrumentWxml', () => {
   it('在标签名后插入 fileId:行:列，行列指向 < 的位置', () => {
@@ -20,7 +21,8 @@ describe('instrumentWxml', () => {
   });
 
   it('不渲染成元素的标签不加标记，里面的元素照常加', () => {
-    const code = '<import src="a.wxml"/><include src="b.wxml"/>\n<template name="t"><view/></template>\n<block wx:if="{{x}}"><text/></block>\n<slot/>';
+    const code =
+      '<import src="a.wxml"/><include src="b.wxml"/>\n<template name="t"><view/></template>\n<block wx:if="{{x}}"><text/></block>\n<slot/>';
     expect(markers(instrumentWxml(code, 1))).toEqual(['view@1:2:20', 'text@1:3:22']);
   });
 
