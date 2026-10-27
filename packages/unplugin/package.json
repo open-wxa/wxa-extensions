@@ -1,6 +1,6 @@
 {
   "name": "@open-wxa/unplugin-wxa-runner",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Vite / webpack plugin that runs uni-app and Taro mp-weixin builds in wxa-runner, with optional runner extensions",
   "keywords": [
     "miniprogram",

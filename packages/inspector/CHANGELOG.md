@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/open-wxa/wxa-extensions/compare/wxa-inspector-v0.1.0...wxa-inspector-v0.1.1) (2026-10-27)
+
+
+### 其他
+
+* 发布 0.1.1：E2E 改用 npm 上的 wxa-runner 0.9.0，清理 CHANGELOG 重复条目 ([#6](https://github.com/open-wxa/wxa-extensions/issues/6)) ([d69bf81](https://github.com/open-wxa/wxa-extensions/commit/d69bf810a7d30bfdae53f39b23e99af449380b49))
+
 ## 0.1.0 (2026-10-27)
 
 
