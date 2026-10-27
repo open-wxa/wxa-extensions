@@ -1,4 +1,4 @@
 {
-  "packages/inspector": "0.0.0",
-  "packages/unplugin": "0.0.0"
+  "packages/inspector": "0.1.0",
+  "packages/unplugin": "0.1.0"
 }
