@@ -94,7 +94,7 @@ function smokeTest(packages, tarballs) {
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'wxa-extensions-smoke', private: true }));
   console.log(`在 ${dir} 安装 ${describe(packages)}`);
   // 试用只加载插件，不启动 runner，对等依赖 wxa-runner-core 不用装
-  run('npm', ['install', '--no-audit', '--no-fund', '--omit=peer', ...tarballs], { cwd: dir });
+  run('npm', ['install', '--no-audit', '--no-fund', '--omit=peer', '--registry', REGISTRY, ...tarballs], { cwd: dir });
   for (const pkg of packages) {
     run('node', ['-e', SMOKE_TESTS[pkg.name]], { cwd: dir });
     console.log(`试用通过：${pkg.name}@${pkg.version}`);
