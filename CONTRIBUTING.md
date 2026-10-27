@@ -18,17 +18,18 @@ pnpm fmt           # 格式化
 
 ## E2E
 
-用真实的 wxa-runner 和 Chrome 跑检查器。`WXA_RUNNER_DIR` 指向带扩展点、已 `pnpm build` 的 wxa-runner 仓库：
+用真实的 wxa-runner 和 Chrome 跑检查器，默认用 npm 上的 `@open-wxa/wxa-runner-core`（开发依赖）：
 
 ```bash
-WXA_RUNNER_DIR=../wxa-runner pnpm test:e2e
-WXA_BASELIB=2.32.3 WXA_RUNNER_DIR=../wxa-runner pnpm test:e2e   # 换基础库版本
+pnpm test:e2e
+WXA_BASELIB=2.32.3 pnpm test:e2e                 # 换基础库版本
+WXA_RUNNER_DIR=../wxa-runner pnpm test:e2e       # 试还没发版的 runner 改动：指向已 pnpm build 的 wxa-runner 仓库
 ```
 
 ## 手动试用
 
 ```bash
-node ../wxa-runner/packages/cli/bin/wxa-runner.js dev tests/fixtures/native --extension @open-wxa/wxa-inspector --open
+npx wxa-runner@latest dev tests/fixtures/native --extension @open-wxa/wxa-inspector --open
 ```
 
 ## 发布

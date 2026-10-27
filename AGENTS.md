@@ -18,7 +18,7 @@ wxa-runner 0.9.0 起支持扩展（`--extension`、`DevServer({ extensions })`�
 pnpm build      # 各包 vp pack
 pnpm check      # 格式、lint、类型检查；pnpm exec vp check --fix 自动修格式
 pnpm test       # 单测 tests/unit
-pnpm test:e2e   # 真实 wxa-runner + Chrome，需要 WXA_RUNNER_DIR 指向已 build 的 wxa-runner 仓库，可用 WXA_BASELIB 换基础库
+pnpm test:e2e   # 真实 wxa-runner（默认 npm 上的版本，WXA_RUNNER_DIR 可指向本地已 build 的 runner 仓库）+ Chrome，WXA_BASELIB 换基础库
 ```
 
 提交信息按 Conventional Commits 写，描述用中文，如 `fix: …`、`feat: …`。PR 只能 squash 合并，PR 标题会成为 main 上的提交信息，也要按这个规范写。代码注释用中文，风格跟随周围代码。
