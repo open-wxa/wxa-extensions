@@ -4,7 +4,7 @@
 
 ## 先读
 
-1. [PROJECT_DESIGN.md](../PROJECT_DESIGN.md)：整体设计（重点看「源码标记」「浏览器端」「Node 端接口」）
+1. [AGENTS.md](../AGENTS.md)：整体设计（重点看「源码标记」「浏览器端」「Node 端接口」）
 2. [runner-extensions.md](./runner-extensions.md)：要给 wxa-runner 加的扩展点
 
 设计与实际不符时以**实际跑通**为准，偏差记进报告（见「交付物」），不要为了贴合文档硬改。
@@ -67,7 +67,7 @@ wxa-inspector 建成 pnpm monorepo，核心包放在 `packages/inspector`（npm 
 
 ### S2 inspector 核心（wxa-inspector）
 
-对外只导出 `inspector(options)`，签名见 PROJECT_DESIGN.md「集成入口」。内部四块：
+对外只导出 `inspector(options)`，签名见 AGENTS.md。内部四块：
 
 **1. wxml 插桩**（`wxmlTransform` 的实现）
 
@@ -108,5 +108,5 @@ wxa-inspector 建成 pnpm monorepo，核心包放在 `packages/inspector`（npm 
 2. `wxa-inspector/docs/spike/native-report.md`，包含：
    - S0 的结论：`__wxElement` 的实际 API、拿父节点和组件路径的方法、tap 的事件来源、不同基础库版本的差异
    - 跑通的截图或录屏路径，以及复现命令
-   - 和 PROJECT_DESIGN.md、runner-extensions.md 不一致的地方，以及原因
+   - 和 AGENTS.md、runner-extensions.md 不一致的地方，以及原因
    - 没解决的问题、已知限制，以及对 P3（uni）有影响的发现

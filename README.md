@@ -1,14 +1,61 @@
-# wxa-inspector
+# wxa-extensions
 
-> 在 [wxa-runner](https://github.com/open-wxa/wxa-runner) 里点选小程序页面上的元素，直接在编辑器打开对应源码的那一行。
+[wxa-runner](https://github.com/open-wxa/wxa-runner) 的扩展与构建插件。
 
-**状态：原生小程序已经可用，但还没发布到 npm**，依赖的 wxa-runner 扩展点也还没发版。uni-app 支持和 Elements 面板还没开始。
-架构与决策见 [PROJECT_DESIGN.md](./PROJECT_DESIGN.md)，wxa-runner 的扩展点见 [docs/runner-extensions.md](./docs/runner-extensions.md)，
-依赖的基础库行为见 [docs/base-library.md](./docs/base-library.md)。
+> 还没有发布到 npm。
 
-## 用法
+## @open-wxa/unplugin-wxa-runner
 
-原生小程序：
+uni-app `dev:mp-weixin` 时自动启动 wxa-runner，不用再开一个终端运行 `wxa-runner dev`。
+
+```bash
+pnpm add -D @open-wxa/unplugin-wxa-runner @open-wxa/wxa-runner-core
+```
+
+```ts
+// vite.config.ts
+import uni from '@dcloudio/vite-plugin-uni';
+import wxaRunner from '@open-wxa/unplugin-wxa-runner/vite';
+
+export default defineConfig({
+  plugins: [uni(), wxaRunner()]
+});
+```
+
+首轮编译完成后终端打印 wxa-runner 的地址：
+
+```
+  wxa-runner 已启动
+  地址      http://localhost:3000
+  局域网    传 host: '0.0.0.0' 开放局域网访问
+  项目      /path/to/project/dist/dev/mp-weixin
+  基础库    3.7.0
+```
+
+之后的热更新由 wxa-runner 负责。插件只在 `uni -p mp-weixin` 时生效，`uni build` 和其他平台不受影响。
+
+### 选项
+
+| 选项             | 默认值                                       | 说明                                                       |
+| ---------------- | -------------------------------------------- | ---------------------------------------------------------- |
+| `port`           | 从 3000 起找空闲端口                         | 指定后，端口被占用时启动失败                               |
+| `host`           | `'localhost'`                                | `'0.0.0.0'` 开放局域网访问                                 |
+| `baseLibVersion` | 本机已安装的最新兼容版本                     | 基础库版本                                                 |
+| `setup`          | 项目根目录的 `wxa.setup.ts` / `.js` / `.mjs` | mock 等 setup 文件，相对项目根目录；`false` 不用           |
+| `forwardConsole` | `'errors'`                                   | 浏览器里的报错转发到终端；`'all'` 再加上 warn              |
+| `extensions`     | 无                                           | 挂 wxa-runner 扩展，如检查器；需要 wxa-runner 0.9.0 及以上 |
+
+其余选项原样传给 wxa-runner 的 `DevServer`，与 `wxa-runner dev` 命令行的默认值一致。
+
+### 注意
+
+- 需要 Node.js 20.19 / 22.12 及以上。
+- wxa-runner 启动失败（如指定的端口被占用）只在终端打印原因，不打断 uni 的编译。
+- Taro 用 `/vite` 或 `/webpack` 入口，还没有验证过。
+
+## @open-wxa/wxa-inspector
+
+wxa-runner 扩展：在页面上点选元素，直接在编辑器打开对应源码的那一行。原生小程序：
 
 ```bash
 pnpm add -D wxa-runner @open-wxa/wxa-inspector
@@ -16,44 +63,16 @@ npx wxa-runner dev ./miniprogram --extension @open-wxa/wxa-inspector
 # → http://localhost:3000/__wxa-inspector__/
 ```
 
-uni-app（Vue 3 + Vite，计划中，还不能用）：一条 `dev:mp-weixin` 同时完成监听构建和启动 wxa-runner，不用再开第二个终端。
+在打开的页面上按 `Alt+Shift+C`（或点右下角的按钮）开始检查：悬停高亮元素并显示 `文件:行:列`，点击在编辑器打开那一行，`Esc` 退出。
+编辑器按正在运行的编辑器自动选择，也可以用环境变量 `LAUNCH_EDITOR` 指定（`code`、`cursor`、`webstorm`……）。
 
-```ts
-// vite.config.ts
-import { defineConfig } from 'vite';
-import uni from '@dcloudio/vite-plugin-uni';
-import wxaInspector from '@open-wxa/wxa-inspector-uni';
+### 注意
 
-export default defineConfig({
-  plugins: [wxaInspector(), uni()]
-});
-```
+- 目前只支持原生小程序，uni-app 还不能用。
 
-打开终端打印的地址：
+## 参与开发
 
-- 左边是 wxa-runner 运行的小程序，右边是面板（Elements 树、页面栈、构建错误）
-- 打开检查器（工具栏按钮或 `Alt+Shift+C`），悬停高亮元素并显示 `文件:行:列`，点击后在编辑器打开
-
-Console、Network、Sources 继续用 Chrome DevTools，wxa-inspector 不重复实现。
-
-## 开发
-
-工具链是 [Vite+](https://viteplus.dev)（`vp`）：打包用 tsdown（`vp pack`），测试用 Vitest，lint 和格式化用 Oxlint、Oxfmt，配置都在 `vite.config.ts`。开发需要 Node 22.18 及以上，发布的包仍支持 Node 18。
-
-```bash
-pnpm install
-pnpm build         # vp pack
-pnpm check         # vp check：格式、lint、类型检查
-pnpm test          # 单测
-pnpm fmt           # 格式化
-
-# E2E：真实的 wxa-runner + Chrome。WXA_RUNNER_DIR 指向带扩展点、已 pnpm build 的 wxa-runner 仓库
-WXA_RUNNER_DIR=../wxa-runner pnpm test:e2e
-WXA_BASELIB=2.32.3 WXA_RUNNER_DIR=../wxa-runner pnpm test:e2e   # 换基础库版本
-
-# 手动试用：用示例项目启动
-node ../wxa-runner/packages/cli/bin/wxa-runner.js dev tests/fixtures/native --extension @open-wxa/wxa-inspector --open
-```
+见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ## 许可证
 
