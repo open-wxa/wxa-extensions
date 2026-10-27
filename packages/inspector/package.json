@@ -1,6 +1,6 @@
 {
   "name": "@open-wxa/wxa-inspector",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Element inspector for wxa-runner: hover to highlight, click to open the source in your editor",
   "keywords": [
     "inspector",
