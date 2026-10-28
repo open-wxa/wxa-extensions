@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { FileIdRegistry } from '../../packages/inspector/src/transform/FileIdRegistry';
-import { createMiddleware, isLoopback } from '../../packages/inspector/src/server/middleware';
+import { createMiddleware, isLoopback, startTagAt } from '../../packages/inspector/src/server/middleware';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wxa-inspector-'));
 fs.mkdirSync(path.join(root, 'pages/index'), { recursive: true });
@@ -116,8 +116,59 @@ describe('POST /open', () => {
     expect(opened).toHaveLength(1);
   });
 
+  it('/locate 按同样的请求体返回位置和绝对路径，不打开编辑器', async () => {
+    const locate = (body: unknown, headers: Record<string, string> = {}) =>
+      fetch(`${base}/locate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify(body)
+      });
+    expect(await (await locate({ id: indexId, line: 1, col: 1 })).json()).toEqual({
+      file: 'pages/index/index.wxml',
+      path: path.join(root, 'pages/index/index.wxml'),
+      line: 1,
+      col: 1,
+      tag: '<view/>'
+    });
+    expect((await locate({ id: escapeId })).status).toBe(403);
+    expect((await locate({ id: missingId })).status).toBe(404);
+    expect((await locate({ id: indexId }, { Origin: 'http://evil.example' })).status).toBe(403);
+    expect(opened).toEqual([]);
+  });
+
   it('只接受本机的请求', () => {
     expect(['127.0.0.1', '::1', '::ffff:127.0.0.1'].every(isLoopback)).toBe(true);
     expect(['192.168.1.5', '::ffff:10.0.0.2', undefined].some(isLoopback)).toBe(false);
+  });
+});
+
+describe('startTagAt：复制时附上的源码开始标签', () => {
+  const code = [
+    '<template>',
+    '  <view',
+    '    class="story-card"',
+    '    :class="{ done: a > b }"',
+    '    @tap="go(\'<x>\')"',
+    '  >',
+    '    <text>{{ a > b ? 1 : 2 }}</text><image src={{a>b}} />',
+    '  </view>',
+    '</template>'
+  ].join('\n');
+
+  it('跨行的开始标签合成一行，引号和 {{ }} 里的 > 不算结束', () => {
+    expect(startTagAt(code, 2, 3)).toBe(`<view class="story-card" :class="{ done: a > b }" @tap="go('<x>')" >`);
+    expect(startTagAt(code, 7, 37)).toBe('<image src={{a>b}} />');
+  });
+
+  it('那里不是开始标签、行号超出文件时返回 null', () => {
+    expect(startTagAt(code, 7, 11)).toBeNull();
+    expect(startTagAt(code, 8, 3)).toBeNull();
+    expect(startTagAt(code, 99, 1)).toBeNull();
+  });
+
+  it('太长时截断', () => {
+    const tag = startTagAt(`<view class="${'a'.repeat(400)}">`, 1, 1)!;
+    expect(tag).toHaveLength(301);
+    expect(tag.endsWith('…')).toBe(true);
   });
 });

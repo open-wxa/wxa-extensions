@@ -43,6 +43,7 @@ let output: string;
 function createPlugin(options?: WxaRunnerPluginOptions, build: { watch?: object | null } = { watch: {} }) {
   const plugin = wxaRunner(options) as unknown as {
     configResolved(config: unknown): void;
+    load: { order: string; handler(id: string): Promise<{ code: string } | null> | null };
     writeBundle(): Promise<void>;
     closeWatcher(): Promise<void>;
   };
@@ -201,6 +202,115 @@ describe('Vite 插件启动 wxa-runner', () => {
     await plugin.closeWatcher();
 
     expect(servers[0].close).toHaveBeenCalledOnce();
+  });
+});
+
+describe('Vite 插件把源码交给扩展插桩', () => {
+  /** 把 .vue 的内容包一层，记下收到的构建信息和文件 */
+  function createExtension(prepare?: () => void) {
+    const contexts: unknown[] = [];
+    const files: string[] = [];
+    const extension = {
+      name: 'marker',
+      setup: () => ({}),
+      instrumentSource: vi.fn((context: unknown) => {
+        contexts.push(context);
+        prepare?.();
+        return {
+          include: /\.vue$/,
+          transform: (code: string, file: string) => {
+            files.push(file);
+            return { code: `[${code}]` };
+          }
+        };
+      })
+    };
+    return { extension, contexts, files };
+  }
+
+  /** 返回 Vite 给 load 的模块 id：解析过软链接的真实路径（macOS 的临时目录 /var 就是 /private/var 的软链接） */
+  function writeSource(relative: string, code: string): string {
+    const file = path.join(root, relative);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, code);
+    return fs.realpathSync(file);
+  }
+
+  it('构建开始时把项目根目录、框架和构建工具告诉扩展，load 读原文件交给它插桩', async () => {
+    const { extension, contexts, files } = createExtension();
+    const plugin = createPlugin({ extensions: [extension] });
+    const file = writeSource('src/pages/index/index.vue', '<template/>');
+
+    expect(contexts).toEqual([{ root: fs.realpathSync(root), framework: 'uni', bundler: 'vite' }]);
+    expect(plugin.load.order).toBe('pre');
+    expect(await plugin.load.handler(file)).toEqual({ code: '[<template/>]' });
+    expect(files).toEqual([file]);
+  });
+
+  it('只处理项目里的真实文件：node_modules、项目外、带查询参数、虚拟模块、不匹配 include 的都交回构建工具', async () => {
+    const { extension, files } = createExtension();
+    const plugin = createPlugin({ extensions: [extension] });
+    const inDependency = writeSource('node_modules/wot-design-uni/components/wd-button/wd-button.vue', '<template/>');
+    const script = writeSource('src/main.ts', '');
+    const page = writeSource('src/pages/index/index.vue', '<template/>');
+
+    for (const id of [inDependency, script, `${page}?vue&type=style&index=0`, '\0virtual.vue', '/elsewhere/a.vue']) {
+      expect(await plugin.load.handler(id)).toBeNull();
+    }
+    expect(files).toEqual([]);
+  });
+
+  it('不是监听构建、不是微信小程序时不问扩展，也不处理源码', async () => {
+    const { extension } = createExtension();
+    const file = writeSource('src/pages/index/index.vue', '<template/>');
+
+    const notWatch = createPlugin({ extensions: [extension] }, { watch: null });
+    expect(await notWatch.load.handler(file)).toBeNull();
+    vi.stubEnv('UNI_PLATFORM', 'h5');
+    const h5 = createPlugin({ extensions: [extension] });
+    expect(await h5.load.handler(file)).toBeNull();
+    expect(extension.instrumentSource).not.toHaveBeenCalled();
+  });
+
+  it('Taro 编译时告诉扩展框架是 taro', () => {
+    vi.stubEnv('UNI_PLATFORM', undefined);
+    vi.stubEnv('TARO_ENV', 'weapp');
+    const { extension, contexts } = createExtension();
+    createPlugin({ extensions: [extension] });
+
+    expect(contexts).toEqual([{ root: fs.realpathSync(root), framework: 'taro', bundler: 'vite' }]);
+  });
+
+  it('扩展准备失败、处理文件出错时只提示，交回构建工具照常读取，不中断编译', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const failing = createExtension(() => {
+      throw new Error('找不到 vue/compiler-sfc');
+    }).extension;
+    const throwing = {
+      name: 'broken',
+      setup: () => ({}),
+      instrumentSource: () => ({
+        include: /\.vue$/,
+        transform: () => {
+          throw new Error('解析失败');
+        }
+      })
+    };
+    const plugin = createPlugin({ extensions: [failing, throwing] });
+    const file = writeSource('src/pages/index/index.vue', '<template/>');
+
+    expect(await plugin.load.handler(file)).toBeNull();
+    expect(await plugin.load.handler(path.join(fs.realpathSync(root), 'src/gone.vue'))).toBeNull();
+    const warnings = warn.mock.calls.join('\n');
+    expect(warnings).toContain('marker 不能处理源码：找不到 vue/compiler-sfc');
+    expect(warnings).toContain(`broken 处理 ${path.join('src/pages/index/index.vue')} 失败：解析失败`);
+  });
+
+  it('扩展返回 null（这个框架不需要）时不处理源码', async () => {
+    const plugin = createPlugin({
+      extensions: [{ name: 'native-only', setup: () => ({}), instrumentSource: () => null }]
+    });
+    expect(await plugin.load.handler(writeSource('src/a.vue', '<template/>'))).toBeNull();
   });
 });
 

@@ -2,7 +2,7 @@
  * 源文件的短 id：标记里写 id 而不是路径，模板不会因为长路径膨胀。
  *
  * id 按首次登记的顺序自增，进程内不回收：热更新后页面上还留着的旧标记依然能查到文件。
- * uni 等框架的插件在自己的编译环节登记，再把同一个实例交给 inspector({ markers: 'external' })。
+ * uni 等框架的源码由 instrumentSource 打标记时登记，setup 与之共用同一个实例。
  */
 export class FileIdRegistry {
   private readonly ids = new Map<string, number>();

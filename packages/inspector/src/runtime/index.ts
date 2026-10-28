@@ -5,6 +5,7 @@
  * 所以事件监听在这里一次注册好，开关只改变监听里的行为；执行时 DOM 还没就绪，高亮层等到要显示时才创建。
  *
  * 开关状态由检查器页面（window.top）统一管理：加载后发 hello 要当前状态，之后接收 state 广播。
+ * 点击在编辑器打开源码；按住 Alt（⌥）点击把源码位置复制到剪贴板，方便交给编程助手。
  */
 
 import { locate, type Located } from './locate';
@@ -46,7 +47,8 @@ for (const type of BLOCKED_EVENTS) {
       event.stopImmediatePropagation();
       if (type === 'click') {
         overlay.flash();
-        void open(locate(event.target));
+        const located = locate(event.target);
+        void ((event as MouseEvent).altKey ? copy(located) : open(located));
       }
     },
     { capture: true, passive: false }
@@ -94,21 +96,56 @@ async function hover(located: Located | null): Promise<void> {
 
 async function open(located: Located | null): Promise<void> {
   if (!located) return;
-  const { source } = located;
+  try {
+    const result = await requestSource('open', located);
+    post({ kind: 'opened', label: `${result.file}:${result.line}:${result.col}` });
+  } catch (error) {
+    post({ kind: 'failed', message: (error as Error).message });
+  }
+}
+
+/**
+ * 复制「绝对路径:行:列」和源码里那个元素的开始标签。剪贴板在这个页面里写：点击发生在这里，只有这里有用户激活和焦点；
+ * 请求 /locate 的耗时远小于用户激活的有效期
+ */
+async function copy(located: Located | null): Promise<void> {
+  if (!located) return;
+  try {
+    const result = await requestSource('locate', located);
+    const position = `${result.path}:${result.line}:${result.col}`;
+    await navigator.clipboard.writeText(result.tag ? `${position}\n${result.tag}` : position);
+    post({ kind: 'copied', label: `${result.file}:${result.line}:${result.col}` });
+  } catch (error) {
+    post({ kind: 'copy-failed', message: (error as Error).message });
+  }
+}
+
+interface SourceLocation {
+  /** 相对源码根目录 */
+  file: string;
+  /** 绝对路径和那里的开始标签原文（不是标签时为 null），只有 /locate 返回 */
+  path?: string;
+  tag?: string | null;
+  line: number;
+  col: number;
+}
+
+async function requestSource(action: 'open' | 'locate', { source }: Located): Promise<SourceLocation> {
   const body =
     source.kind === 'marker' ? { id: source.fileId, line: source.line, col: source.col } : { component: source.path };
+  let res: Response;
   try {
-    const res = await fetch(`${API}/open`, {
+    res = await fetch(`${API}/${action}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    const result = await res.json();
-    if (res.ok) post({ kind: 'opened', label: `${result.file}:${result.line}:${result.col}` });
-    else post({ kind: 'failed', message: result.error });
   } catch (error) {
-    post({ kind: 'failed', message: `连不上开发服务器（${(error as Error).message}）` });
+    throw new Error(`连不上开发服务器（${(error as Error).message}）`, { cause: error });
   }
+  const result = await res.json();
+  if (!res.ok) throw new Error(result.error);
+  return result;
 }
 
 async function describeHighlight({ element, source }: Located): Promise<Highlight> {

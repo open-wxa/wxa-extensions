@@ -49,6 +49,9 @@ const STYLE = `
 @media (prefers-reduced-motion: reduce) { .box.picked { animation: none; } }
 `;
 
+/** 按住它点击复制源码位置（见 runtime/index.ts） */
+const ALT = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌥' : 'Alt+';
+
 /** 卡片与元素的间距，以及离视口边缘的最小距离 */
 const GAP = 6;
 const EDGE = 6;
@@ -143,7 +146,7 @@ export class Overlay {
         componentOnly ? el('span', 'badge', '组件') : null,
         el('span', 'size', `${rpx(rect.width)} × ${rpx(rect.height)} rpx`),
         // 位置未知时点了也打不开
-        file ? el('span', 'hint', '点击打开') : null
+        file ? el('span', 'hint', `点击打开 · ${ALT}点击复制`) : null
       ])
     );
   }

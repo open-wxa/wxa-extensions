@@ -5,6 +5,7 @@
  *   GET  /runtime.js  注入渲染层页面的运行时
  *   GET  /manifest    fileId → 文件路径
  *   POST /open        { id, line, col } 或 { component }：在编辑器里打开
+ *   POST /locate      同 /open 的请求体，只返回解析出的位置（含绝对路径）和那里的开始标签，不打开编辑器：复制源码位置用
  */
 
 import fs from 'fs';
@@ -37,8 +38,8 @@ export function createMiddleware(options: MiddlewareOptions): Handler {
     if (req.method === 'GET' && pathname === '/runtime.js') return send(res, 200, 'application/javascript', runtime());
     if (req.method === 'GET' && pathname === '/manifest')
       return send(res, 200, 'application/json', JSON.stringify(options.registry.manifest()));
-    if (pathname === '/open') {
-      handleOpen(req, res, options).catch(next);
+    if (pathname === '/open' || pathname === '/locate') {
+      handleSource(req, res, options, pathname === '/open').catch(next);
       return;
     }
     next();
@@ -47,9 +48,15 @@ export function createMiddleware(options: MiddlewareOptions): Handler {
 
 /**
  * 打开编辑器会在本机启动进程，只接受本机检查器页面发来的请求：
- * 必须是 POST + JSON（跨站请求过不了 CORS 预检），来源要与页面同源，并且来自本机（开放局域网访问时别的设备也能打开页面）
+ * 必须是 POST + JSON（跨站请求过不了 CORS 预检），来源要与页面同源，并且来自本机（开放局域网访问时别的设备也能打开页面）。
+ * /locate 返回本机的绝对路径，按同样的规则限制
  */
-async function handleOpen(req: IncomingMessage, res: ServerResponse, options: MiddlewareOptions): Promise<void> {
+async function handleSource(
+  req: IncomingMessage,
+  res: ServerResponse,
+  options: MiddlewareOptions,
+  open: boolean
+): Promise<void> {
   if (req.method !== 'POST') return sendError(res, 405, '只接受 POST');
   if (!String(req.headers['content-type']).startsWith('application/json')) return sendError(res, 415, '只接受 JSON');
   if (!isSameOrigin(req)) return sendError(res, 403, '只接受检查器页面发来的请求');
@@ -66,12 +73,22 @@ async function handleOpen(req: IncomingMessage, res: ServerResponse, options: Mi
   if ('error' in target) return sendError(res, target.status, target.error);
   if (!fs.existsSync(target.file)) return sendError(res, 404, `文件不存在：${target.relative}`);
 
-  try {
-    await options.openEditor(target.file, target.line, target.col);
-  } catch (error) {
-    return sendError(res, 500, (error as Error).message);
+  if (open) {
+    try {
+      await options.openEditor(target.file, target.line, target.col);
+    } catch (error) {
+      return sendError(res, 500, (error as Error).message);
+    }
   }
-  send(res, 200, 'application/json', JSON.stringify({ file: target.relative, line: target.line, col: target.col }));
+  const location = { file: target.relative, line: target.line, col: target.col };
+  const located = open
+    ? location
+    : {
+        ...location,
+        path: target.file,
+        tag: startTagAt(fs.readFileSync(target.file, 'utf8'), target.line, target.col)
+      };
+  send(res, 200, 'application/json', JSON.stringify(located));
 }
 
 type Target = { file: string; relative: string; line: number; col: number } | { status: number; error: string };
@@ -100,6 +117,33 @@ function within(root: string, relative: string, line: number, col: number): Targ
     return { status: 403, error: `不能打开源码目录之外的文件：${relative}` };
   }
   return { file, relative: fromRoot.split(path.sep).join('/'), line, col };
+}
+
+const MAX_TAG_LENGTH = 300;
+
+/**
+ * 行:列 处的开始标签原文，跨行的合成一行；那里不是标签（按组件路径打开时是 1:1）返回 null。
+ * 引号和 {{ }} 里的 > 不算标签结束
+ */
+export function startTagAt(code: string, line: number, col: number): string | null {
+  let start = 0;
+  for (let i = 1; i < line; i++) {
+    start = code.indexOf('\n', start) + 1;
+    if (start === 0) return null;
+  }
+  start += col - 1;
+  if (code[start] !== '<' || !/[A-Za-z]/.test(code[start + 1] ?? '')) return null;
+
+  let end = start + 1;
+  while (end < code.length && code[end] !== '>') {
+    const ch = code[end];
+    if (ch === '"' || ch === "'") end = code.indexOf(ch, end + 1);
+    else if (code.startsWith('{{', end)) end = code.indexOf('}}', end + 2) + 1;
+    if (end <= 0) return null;
+    end++;
+  }
+  const tag = code.slice(start, end + 1).replace(/\s+/g, ' ');
+  return tag.length > MAX_TAG_LENGTH ? `${tag.slice(0, MAX_TAG_LENGTH)}…` : tag;
 }
 
 function isSameOrigin(req: IncomingMessage): boolean {
