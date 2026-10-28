@@ -8,6 +8,7 @@
  * 只在编译微信小程序的监听构建（`uni -p mp-weixin`、`taro build --type weapp --watch`）时启用：
  * 首轮产物写出后启动 wxa-runner，打印地址。之后的改动交给 wxa-runner 自己监听产物目录：
  * 内容没变的文件不算改动，一批写入合并成一次热更新或整页刷新。
+ * 扩展提供 instrumentSource 时，构建期间把项目源码先交给它插桩（如检查器给 .vue 打源码标记），见 instrumentSource.ts。
  */
 
 import fs from 'fs';
@@ -16,11 +17,22 @@ import { styleText } from 'util';
 import { createUnplugin } from 'unplugin';
 import type { DevServer, DevServerOptions } from '@open-wxa/wxa-runner-core';
 import { loadRunner } from './loadRunner';
+import {
+  loadInstrumented,
+  prepareInstrumenters,
+  type NamedInstrumenter,
+  type SourceBuildContext,
+  type SourceInstrumenter
+} from './instrumentSource';
+
+export type { SourceBuildContext, SourceInstrumenter } from './instrumentSource';
 
 /** wxa-runner 开发服务器扩展的形状（DevServerExtension），如 @open-wxa/wxa-inspector 默认导出的 wxaInspector() */
 export interface RunnerExtension {
   name: string;
   setup(context: { projectPath: string; root: string }): object;
+  /** 可选：框架编译源码前给源码插桩，构建开始时调用一次；返回 null 表示这个框架不需要 */
+  instrumentSource?(context: SourceBuildContext): SourceInstrumenter | null;
 }
 
 /**
@@ -40,6 +52,7 @@ interface ExtensionEntry {
 interface BuildDirs {
   root: string;
   output: string;
+  framework: SourceBuildContext['framework'];
 }
 
 const NAME = 'unplugin-wxa-runner';
@@ -48,6 +61,9 @@ const SETUP_FILE_NAMES = ['wxa.setup.ts', 'wxa.setup.js', 'wxa.setup.mjs'];
 export const unplugin = createUnplugin<WxaRunnerPluginOptions | undefined>((options = {}) => {
   /** 编译微信小程序的监听构建才有 */
   let dirs: BuildDirs | null = null;
+  let instrumenters: NamedInstrumenter[] = [];
+  /** 交给扩展插桩的源码根目录（真实路径），只在启用时有 */
+  let sourceRoot: string | null = null;
   let started = false;
   let server: DevServer | null = null;
   const close = async () => {
@@ -58,7 +74,20 @@ export const unplugin = createUnplugin<WxaRunnerPluginOptions | undefined>((opti
     name: NAME,
     vite: {
       configResolved(config) {
-        if (config.build.watch) dirs = weixinBuild(config.root, path.resolve(config.root, config.build.outDir));
+        if (!config.build.watch) return;
+        dirs = weixinBuild(config.root, path.resolve(config.root, config.build.outDir));
+        if (dirs) {
+          // Vite 给 load 的模块 id 解析过软链接，项目根目录也要用真实路径，否则软链接下的项目整个被当成项目外
+          sourceRoot = fs.realpathSync(dirs.root);
+          const context = { root: sourceRoot, framework: dirs.framework, bundler: 'vite' } as const;
+          instrumenters = prepareInstrumenters(options.extensions, context, NAME);
+        }
+      },
+      // 先于其他插件的 load 和所有 transform 读到磁盘上的原文件；只给这个钩子提前，
+      // 整个插件提前的话 writeBundle 会跑在 uni 写出 app.json 之前。webpack 还没接（Taro 以后做）
+      load: {
+        order: 'pre',
+        handler: (id) => (sourceRoot ? loadInstrumented(instrumenters, sourceRoot, id, NAME) : null)
       },
       closeWatcher: close
     },
@@ -79,8 +108,9 @@ export const unplugin = createUnplugin<WxaRunnerPluginOptions | undefined>((opti
 
 /** 其他平台（H5、支付宝小程序……）什么都不做 */
 function weixinBuild(root: string, output: string): BuildDirs | null {
-  const weixin = process.env.UNI_PLATFORM === 'mp-weixin' || process.env.TARO_ENV === 'weapp';
-  return weixin ? { root, output } : null;
+  if (process.env.UNI_PLATFORM === 'mp-weixin') return { root, output, framework: 'uni' };
+  if (process.env.TARO_ENV === 'weapp') return { root, output, framework: 'taro' };
+  return null;
 }
 
 function resolveSetup(option: string | false | undefined, root: string): string | false | undefined {

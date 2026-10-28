@@ -128,7 +128,8 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
     });
     const base = await server.start();
     browser = await launchChrome();
-    page = await browser.newPage();
+    // 复制源码位置要写剪贴板，测试里再读出来
+    page = await browser.newPage({ permissions: ['clipboard-read', 'clipboard-write'] });
     await page.goto(base + server.extensionEntries[0].path);
   });
 
@@ -190,6 +191,23 @@ describe.skipIf(!ready)('检查器：原生小程序', () => {
     } finally {
       openFailure = null;
     }
+  });
+
+  it('按住 Alt 点击把绝对路径、行列和源码里的开始标签复制到剪贴板，不打开编辑器、不触发页面的 tap', async () => {
+    const frame = await currentPage();
+    const position = positionOf(project, 'pages/index/index.wxml', '<button');
+    await button(frame, '点击加一').click({ modifiers: ['Alt'] });
+    expect(
+      await eventually(
+        () => status().textContent(),
+        (text) => text!.startsWith('已复制')
+      )
+    ).toBe(`已复制 pages/index/index.wxml:${position}`);
+    expect(await frame.evaluate(() => navigator.clipboard.readText())).toBe(
+      `${path.join(project, 'pages/index/index.wxml')}:${position}\n<button bindtap="onTap">`
+    );
+    expect(opened).toHaveLength(1);
+    expect(await textEl(frame, '点击次数：1').count()).toBe(1);
   });
 
   it('焦点在页面里时按 Esc 退出检查，高亮收起，点击恢复正常', async () => {

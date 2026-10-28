@@ -2,7 +2,7 @@
  * 检查器页面：铺满整页的 wxa-runner 宿主页面（iframe），上面浮着右下角的检查按钮、按钮上方的状态气泡和顶部的构建错误卡片。
  *
  * 开关状态只存在这里，广播给各层 frame；渲染层页面的运行时加载后发 hello 来要当前状态，
- * 点选结果发回来显示在气泡里。构建错误连 wxa-runner 的 /__wxa__/ws：编译失败时显示，重新编译成功后收起。
+ * 点选结果（打开源码，或按住 Alt 点击复制源码位置）发回来显示在气泡里。构建错误连 wxa-runner 的 /__wxa__/ws：编译失败时显示，重新编译成功后收起。
  */
 
 export function shellHtml(): string {
@@ -100,7 +100,8 @@ const SCRIPT = `
   var enabled = false;
   var hideTimer = null;
 
-  var label = '检查元素（' + (isMac ? '⌥⇧C' : 'Alt+Shift+C') + '）';
+  var alt = isMac ? '⌥' : 'Alt+';
+  var label = '检查元素：点击打开源码，' + alt + '点击复制源码位置（' + (isMac ? '⌥⇧C' : 'Alt+Shift+C') + '）';
   toggle.title = label;
   toggle.setAttribute('aria-label', label);
   // 查询参数原样交给宿主页面：?path=pages/detail/detail 直接打开对应页面
@@ -119,7 +120,7 @@ const SCRIPT = `
   }
 
   function idleStatus() {
-    setStatus('', enabled ? '悬停选择元素，点击打开源码，Esc 退出' : '');
+    setStatus('', enabled ? '悬停选择元素，点击打开源码，' + alt + '点击复制位置，Esc 退出' : '');
   }
 
   function setEnabled(value) {
@@ -160,6 +161,10 @@ const SCRIPT = `
       setStatus('ok', '已在编辑器打开 <code>' + escape(data.label) + '</code>', 2500);
     } else if (data.kind === 'failed') {
       setStatus('err', '打开失败：' + escape(data.message), 6000);
+    } else if (data.kind === 'copied') {
+      setStatus('ok', '已复制 <code>' + escape(data.label) + '</code>', 2500);
+    } else if (data.kind === 'copy-failed') {
+      setStatus('err', '复制失败：' + escape(data.message), 6000);
     }
   });
 

@@ -47,7 +47,8 @@
     "dev": "vp pack --watch"
   },
   "dependencies": {
-    "launch-editor": "^2.10.0"
+    "launch-editor": "^2.10.0",
+    "magic-string": "^0.30.21"
   },
   "engines": {
     "node": ">=18"
